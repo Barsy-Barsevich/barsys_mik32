@@ -54,13 +54,13 @@ void HAL_TSENS_LowIrq_Clear();
 void HAL_TSENS_HiIrq_Enable();
 void HAL_TSENS_HiIrq_Disable();
 void HAL_TSENS_HiIrq_Clear();
-void HAL_TSENS_EOSIrq_Enable();
-void HAL_TSENS_EOSIrq_Disable();
-void HAL_TSENS_EOSIrq_Clear();
+void HAL_TSENS_EOCIrq_Enable();
+void HAL_TSENS_EOCIrq_Disable();
+void HAL_TSENS_EOCIrq_Clear();
 /* Чтение флагов прерываний */
 bool HAL_TSENS_LowIrq_Event();
 bool HAL_TSENS_HiIrq_Event();
-bool HAL_TSENS_EOSIrq_Event();
+bool HAL_TSENS_EOCIrq_Event();
 /* Чтение данных */
 float HAL_TSENS_ReadMeasurement();
 float HAL_TSENS_SingleMeasurement();
