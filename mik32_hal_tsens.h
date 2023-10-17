@@ -42,7 +42,6 @@ void HAL_TSENS_Init(void);
 bool HAL_TSENS_ClockSource(uint8_t);
 bool HAL_TSENS_ClockDivider(uint16_t);
 bool HAL_TSENS_Clock(uint32_t);
-void HAL_TSENS_SetTrim(uint8_t);
 void HAL_TSENS_ContiniousOn();
 void HAL_TSENS_ContiniousOff();
 /* Установка значений температурных пределов threshold */
@@ -63,7 +62,12 @@ bool HAL_TSENS_LowIrq_Event();
 bool HAL_TSENS_HiIrq_Event();
 bool HAL_TSENS_EOSIrq_Event();
 /* Чтение данных */
-float HAL_TSENS_ReadMeasurement(void);
+float HAL_TSENS_ReadMeasurement();
 float HAL_TSENS_SingleMeasurement();
+
+/* Установка TRIM (только для версии V0) */
+#ifdef MIK32V0
+void HAL_TSENS_SetTrim(uint8_t);
+#endif
 
 #endif
