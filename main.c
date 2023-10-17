@@ -1,74 +1,3 @@
-/*#include <mcu32_memory_map.h>
-#include <pad_config.h>
-#include <gpio.h>
-#include <analog_reg.h>
-#include <power_manager.h>
-
-#include <uart_lib.h>
-#include <xprintf.h>
-#include "tsens.h"
-
-#define MY_POINTER		(*(uint32_t*)0x00085000)
-#define MY_INT			((uint32_t*)0x100)
-
-void InitClock() 
-{
-	// включение тактирования GPIO
-	PM->CLK_APB_P_SET |= PM_CLOCK_APB_P_GPIO_0_M | PM_CLOCK_APB_P_GPIO_1_M | PM_CLOCK_APB_P_GPIO_0_M;
-	// включение тактирования блока для смены режима выводов
- 	PM->CLK_APB_M_SET |= PM_CLOCK_APB_M_PAD_CONFIG_M | PM_CLOCK_APB_M_WU_M | PM_CLOCK_APB_M_PM_M;
-}//*/
-
-/*int main() {
-	InitClock(); // Включение тактирования GPIO
-
-	PAD_CONFIG->PORT_2_CFG |= (1 << (2 * 7)); 	// Установка вывода 7 порта 2 в режим GPIO
-	GPIO_2->DIRECTION_OUT = 1 << 7; 				// Установка направления вывода 7 порта 2 на выход
-	//PAD_CONFIG->PORT_2_CFG |= (1 << (2 * PIN_BUTTON)); 	// Установка вывода 6 порта 2 в режим GPIO
-	//GPIO_2->DIRECTION_IN = 1 << PIN_BUTTON; 			// Установка направления вывода 6 порта 2 на вход
-	PM->CLK_APB_P_SET = PM_CLOCK_APB_P_UART_0_M;
-	UART_Init(UART_0, 3333, UART_CONTROL1_TE_M | UART_CONTROL1_M_8BIT_M, 0, 0);//*/
-
-
-	/*//(1) Тактирование аналогового блока
-	PM->CLK_APB_P_SET = PM_CLOCK_ANALOG_REG_M;
-
-	ANALOG_REG->TSENS_CONFIG = 	(499<<TSENS_DIV)|
-								(0<<TSENS_TRIM_S)|
-								(1<<TSENS_NRST_S)|
-								(1<<TSENS_NPD_CLK_S)|
-								(1<<TSENS_NPD_S);
-	ANALOG_REG->TSENS_CONTINUOUS = 0x1; //Zapusk continious mode//*/
-
-	//uint32_t temp = ANALOG_REG->TSENS_CONFIG;
-	/*while (1)
-	{
-		uint32_t value = ANALOG_REG->TSENS_VALUE & 0x3FF; //Vydeliajem 10 bit
-		xprintf("%X", value);
-		xprintf(" ");
-		float temperature = ((float)value * 619.2F) / 1024.0F - 273.15F;
-		xprintf("%d", (uint32_t)temperature);
-		xprintf("\n");
-		for (uint32_t i=0; i<100000; i++);
-	}//*/
-
-	/*HAL_TSENS_Init();
-	while (1)
-	{
-		xprintf("%d", (uint32_t)HAL_TSENS_SingleMeasurement());
-		xprintf("\n");
-		for (uint32_t i=0; i<100000; i++);
-	}//*/
-	
-	/*while (1){
-		xprintf("Anomalnain\n");
-		GPIO_2->OUTPUT |= 1 << 7;   // Установка сигнала вывода 7 порта 2 в высокий уровень
-		for (volatile uint32_t i = 0; i < 10000; i++);
-		GPIO_2->OUTPUT &= ~(1 << 7); // Установка сигнала вывода 7 порта  в низкий уровень   
-		for (volatile uint32_t i = 0; i < 10000; i++);
-	}//*/
-//}
-
 #include "mik32_hal_pcc.h"
 #include "mik32_hal_gpio.h"
 #include "analog_reg.h"
@@ -99,7 +28,7 @@ int main()
     GPIO_Init();
     
 	HAL_TSENS_Init();
-	xprintf("%d", HAL_TSENS_ClockSource(TSENS_SYS_CLK));
+	xprintf("%d", HAL_TSENS_ClockSource(TSENS_LSI32K));//TSENS_SYS_CLK));
 	xprintf("\n");
 
 	for (uint32_t i=30000ul; i<110000ul; i+=1000ul)
@@ -121,11 +50,33 @@ void Clock_test(uint32_t freq)
 	xprintf("kHz: ");
 	xprintf("%d", HAL_TSENS_Clock(freq));
 	xprintf(" ");
-	uint32_t a = (ANALOG_REG->TSENS_CFG >> 14) & 0x3FF;
+	uint32_t a = (ANALOG_REG->TSENS_CFG >> TSENS_CFG_DIV_S) & 0x3FF;
 	xprintf("%d", a);
 	xprintf(" ");
 	a += 1;
-	xprintf("%d", F_CPU / a);
+	uint32_t f_real = 0;
+    switch (_hal_tsens_clkmux_)
+    {
+        case 0: //TSENS_SYS_CLK
+            f_real = F_CPU / (PM->DIV_AHB + 1) / (PM->DIV_APB_P + 1);
+            break;
+        case 1: //TSENS_HCLK
+            f_real = F_CPU / (PM->DIV_APB_P + 1);
+            break;
+        case 2: //TSENS_EXTERNAL_32MHZ
+            f_real = 32000000UL;
+            break;
+        case 3: //TSENS_HSI32M
+            f_real = 32000000UL;
+            break;
+        case 4: //TSENS_EXTERNAL_32KHZ
+            f_real = 32000UL;
+            break;
+        case 5: //TSENS_LSI32K
+            f_real = 32000UL;
+            break;
+    }
+	xprintf("%d", (f_real / a));
 	xprintf("\n");
 }
 
