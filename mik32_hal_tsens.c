@@ -5,7 +5,7 @@
 @param  нет
 @return нет
 */
-void HAL_TSENS_Init()
+void HAL_TSENS_MspInit()
 {
     /* Тактирование аналогового блока */
 	PM->CLK_APB_P_SET = PM_CLOCK_APB_P_ANALOG_REGS_M;
@@ -17,7 +17,7 @@ void HAL_TSENS_Init()
 #ifdef MIK32V0
     HAL_TSENS_SetTrim(128);               //< Настройка Trim только для MIK32V0
 #endif
-    HAL_TSENS_ClockSource(TSENS_SYS_CLK); //< Источник такта - sys_clk
+    HAL_TSENS_ClockSource(HAL_TSENS_SYS_CLK); //< Источник такта - sys_clk
     HAL_TSENS_Clock(50000ul);             //< Предустановка частоты tsens
 }
 
@@ -33,7 +33,7 @@ void HAL_TSENS_Init()
     true, если источник тактирования установлен успешно
     false, если входной параметр некорректен или если выбираемая частота меньше минимальной
 */
-bool HAL_TSENS_ClockSource(uint8_t data)
+HAL_StatusTypeDef HAL_TSENS_ClockSource(HAL_TSENS_ClockTypeDef data)
 {
     uint32_t f_real;
     switch (data)
@@ -57,14 +57,14 @@ bool HAL_TSENS_ClockSource(uint8_t data)
             f_real = 32000UL;
             break;
         default:
-            return false;
+            return HAL_ERROR;
     }
-    if (f_real < 32000UL) return false;
+    if (f_real < 32000UL) return HAL_ERROR;
     _hal_tsens_clkmux_ = data;
     ANALOG_REG->TSENS_CFG &= ~TSENS_CFG_CLK_MUX_M;
     ANALOG_REG->TSENS_CFG |= (_hal_tsens_clkmux_ << TSENS_CFG_CLK_MUX_S);
     HAL_TSENS_Clock(50000ul);  //< Предустановка частоты tsens
-    return true;
+    return HAL_OK;
 }
 
 /*!
@@ -74,7 +74,7 @@ bool HAL_TSENS_ClockSource(uint8_t data)
     true, если делитель частоты установлен успешно
     false, если делитель частоты слишком мал или слишком велик
 */
-bool HAL_TSENS_ClockDivider(uint16_t data)
+HAL_StatusTypeDef HAL_TSENS_ClockDivider(uint16_t data)
 {
     data &= 0x3FF;
     //32kHz < fclk < 100kHz
@@ -102,7 +102,7 @@ bool HAL_TSENS_ClockDivider(uint16_t data)
             data = 0;
             break;
         default:
-            return false;
+            return HAL_ERROR;
     }
 /*#ifdef MIK32V0
     ANALOG_REG->TSENS_CFG &= 0b11111111000000000011111111111111;
@@ -112,7 +112,7 @@ bool HAL_TSENS_ClockDivider(uint16_t data)
 #endif*/
     ANALOG_REG->TSENS_CFG &= ~TSENS_CFG_DIV_M;
     ANALOG_REG->TSENS_CFG |= (data<<TSENS_CFG_DIV_S);
-    return true;
+    return HAL_OK;
 }
 
 /*!
@@ -122,9 +122,9 @@ bool HAL_TSENS_ClockDivider(uint16_t data)
     true, если частота установлена успешно
     false, если введенная частота не попадает в область допустимых значений частот для сенсора
 */
-bool HAL_TSENS_Clock(uint32_t f_enter)
+HAL_StatusTypeDef HAL_TSENS_Clock(uint32_t f_enter)
 {
-    if ((f_enter > 100000UL)||(f_enter < 32000UL)) return false;
+    if ((f_enter > 100000UL)||(f_enter < 32000UL)) return HAL_ERROR;
     // находим f_real
     uint32_t f_real;
     switch (_hal_tsens_clkmux_)
@@ -148,12 +148,12 @@ bool HAL_TSENS_Clock(uint32_t f_enter)
             f_real = 32000UL;
             break;
         default:
-            return false;
+            return HAL_ERROR;
     }
     float up_border = (float)f_real / 100000.0;
     float down_border = (float)f_real / 32000.0;
     // If f_real < 32 kHz, return false
-    if (down_border < 1) return false;
+    if (down_border < 1) return HAL_ERROR;
     uint32_t del = f_real / f_enter;
     if ((float)del < up_border) del += 1;
     if ((float)del > down_border) del -= 1;
@@ -167,7 +167,7 @@ bool HAL_TSENS_Clock(uint32_t f_enter)
 #endif*/
     ANALOG_REG->TSENS_CFG &= (~TSENS_CFG_DIV_M);
     ANALOG_REG->TSENS_CFG |= (del<<TSENS_CFG_DIV_S);
-    return true;
+    return HAL_OK;
 }
 
 /*!
@@ -183,6 +183,11 @@ void HAL_TSENS_SetTrim(uint8_t data)
     ANALOG_REG->TSENS_CFG |= (data << 3/*TSENS_CFG_TRIM_S*/);
 }
 #endif
+
+void HAL_TSENS_SingleBegin()
+{
+    ANALOG_REG->TSENS_SINGLE = 1;
+}
 
 /*!
 @brief  Функция включения режима непрерывных измерений
@@ -205,11 +210,11 @@ void HAL_TSENS_ContiniousOff()
 }
 
 /*!
-@brief  Функция установки значения LOW_THRESHOLD
+@brief  Функция установки сырого значения LOW_THRESHOLD
 @param  значение LOW_THRESHOLD (uint16_t)
 @return нет
 */
-void HAL_TSENS_SetLowThreshold(uint16_t data)
+void HAL_TSENS_SetLowThresholdRaw(uint16_t data)
 {
     data &= 0x3FF;
     //ANALOG_REG->TSENS_THRESHOLD &= 0b11111111111100000000001111111111;
@@ -218,16 +223,36 @@ void HAL_TSENS_SetLowThreshold(uint16_t data)
 }
 
 /*!
-@brief  Функция установки значения HI_THRESHOLD
+@brief  Функция установки сырого значения HI_THRESHOLD
 @param  значение HI_THRESHOLD (uint16_t)
 @return нет
 */
-void HAL_TSENS_SetHiThreshold(uint16_t data)
+void HAL_TSENS_SetHiThresholdRaw(uint16_t data)
 {
     data &= 0x3FF;
     //ANALOG_REG->TSENS_THRESHOLD &= 0b11111111111111111111110000000000;
     ANALOG_REG->TSENS_THRESHOLD &= ~TSENS_TRESHOLD_HI_M;
     ANALOG_REG->TSENS_THRESHOLD |= ((uint32_t)data << TSENS_TRESHOLD_HI_S);
+}
+
+/*!
+@brief  Функция установки значения LOW_THRESHOLD
+@param  значение LOW_THRESHOLD (uint16_t)
+@return нет
+*/
+void HAL_TSENS_SetLowThreshold(int32_t data)
+{
+    HAL_TSENS_SetLowThresholdRaw(TSENS_CELSIUS_TO_VALUE(data));
+}
+
+/*!
+@brief  Функция установки значения HI_THRESHOLD
+@param  значение HI_THRESHOLD (uint16_t)
+@return нет
+*/
+void HAL_TSENS_SetHiThreshold(int32_t data)
+{
+    HAL_TSENS_SetHiThresholdRaw(TSENS_CELSIUS_TO_VALUE(data));
 }
 
 /*!
@@ -266,9 +291,10 @@ void HAL_TSENS_LowIrq_Clear()
 @return true  - флаг установлен
         false - флаг очищен
 */
-bool HAL_TSENS_LowIrq_Event()
+HAL_StatusTypeDef HAL_TSENS_LowIrq_Event()
 {
-    return ANALOG_REG->TSENS_IRQ & TSENS_IRQ_LOW_IRQ_M;
+    if ((ANALOG_REG->TSENS_IRQ & TSENS_IRQ_LOW_IRQ_M) != 0) return HAL_OK;
+    else return HAL_ERROR;
 }
 
 /*!
@@ -307,9 +333,10 @@ void HAL_TSENS_HiIrq_Clear()
 @return true  - флаг установлен
         false - флаг очищен
 */
-bool HAL_TSENS_HiIrq_Event()
+HAL_StatusTypeDef HAL_TSENS_HiIrq_Event()
 {
-    return ANALOG_REG->TSENS_IRQ & TSENS_IRQ_HI_IRQ_M;
+    if ((ANALOG_REG->TSENS_IRQ & TSENS_IRQ_HI_IRQ_M) != 0) return HAL_OK;
+    else return HAL_ERROR;
 }
 
 /*!
@@ -348,9 +375,10 @@ void HAL_TSENS_EOCIrq_Clear()
 @return true  - флаг установлен
         false - флаг очищен
 */
-bool HAL_TSENS_EOCIrq_Event()
+HAL_StatusTypeDef HAL_TSENS_EOCIrq_Event()
 {
-    return ANALOG_REG->TSENS_IRQ & TSENS_IRQ_EOC_IRQ_M;
+    if ((ANALOG_REG->TSENS_IRQ & TSENS_IRQ_EOC_IRQ_M) != 0) return HAL_OK;
+    else return HAL_ERROR;
 }
 
 // Reading data
@@ -359,10 +387,10 @@ bool HAL_TSENS_EOCIrq_Event()
 @param  нет
 @return температура в градусах Цельсия
 */
-float HAL_TSENS_ReadMeasurement()
+int32_t HAL_TSENS_ReadMeasurement()
 {
     uint32_t value = ANALOG_REG->TSENS_VALUE & 0x3FF;
-    return (float)TSENS_VALUE_TO_CELSIUS(value) / 100.0;
+    return TSENS_VALUE_TO_CELSIUS(value);
 }
 
 /*!
@@ -370,9 +398,9 @@ float HAL_TSENS_ReadMeasurement()
 @param  нет
 @return температура в градусах Цельсия
 */
-float HAL_TSENS_SingleMeasurement()
+int32_t HAL_TSENS_SingleMeasurement()
 {
     ANALOG_REG->TSENS_SINGLE = 1;
-    while (!HAL_TSENS_EOCIrq_Event());
+    while (HAL_TSENS_EOCIrq_Event()); //< Ответ в формате HAL; HAL_OK = 0, HAL_ERROR = 1
     return HAL_TSENS_ReadMeasurement();
 }
