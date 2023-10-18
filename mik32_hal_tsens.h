@@ -6,6 +6,7 @@
 #include "stdbool.h"
 #include "mcu32_memory_map.h"
 #include <power_manager.h>
+#include "mik32_hal_def.h"
 //#include "mik32_hal_pcc.h"
 
 /*
@@ -16,37 +17,51 @@
  */
 #define F_CPU 32000000UL
 
-/*
- * Define
- * Константы-параметры функции установки источника тактирования TSENS
- */
-#define TSENS_SYS_CLK           0x0
+/*#define TSENS_SYS_CLK           0x0
 #define TSENS_HCLK              0x1
 #define TSENS_EXTERNAL_32MHZ    0x2
 #define TSENS_HSI32M            0x3
 #define TSENS_EXTERNAL_32KHZ    0x4
-#define TSENS_LSI32K            0x5
+#define TSENS_LSI32K            0x5*/
+
+
+/*
+ * Define
+ * Константы-параметры функции установки источника тактирования TSENS
+ */
+typedef enum
+{
+    HAL_TSENS_SYS_CLK         = 0x0,
+    HAL_TSENS_HCLK            = 0x1,
+    HAL_TSENS_EXTERNAL_32MHZ  = 0x2,
+    HAL_TSENS_HSI32M          = 0x3,
+    HAL_TSENS_EXTERNAL_32KHZ  = 0x4,
+    HAL_TSENS_LSI32K          = 0x5
+} HAL_TSENS_ClockTypeDef;
 
 /*
  * Variable: _hal_tsens_clkmux_
- * 
+ *
  * Переменная для хранения значения текущего режима тактирования
  * 
  * Эта переменная может содержать число в пределах от 0 до 5
- *
+ * 
  */
 uint8_t _hal_tsens_clkmux_;
 
 /* Инициализация и начальная настройка */
-void HAL_TSENS_Init(void);
-bool HAL_TSENS_ClockSource(uint8_t);
-bool HAL_TSENS_ClockDivider(uint16_t);
-bool HAL_TSENS_Clock(uint32_t);
+void HAL_TSENS_MspInit();
+HAL_StatusTypeDef HAL_TSENS_ClockSource(HAL_TSENS_ClockTypeDef clock_source);
+HAL_StatusTypeDef HAL_TSENS_ClockDivider(uint16_t clock_divider);
+HAL_StatusTypeDef HAL_TSENS_Clock(uint32_t clock_frequency_hz);
+void HAL_TSENS_SingleBegin();
 void HAL_TSENS_ContiniousOn();
 void HAL_TSENS_ContiniousOff();
 /* Установка значений температурных пределов threshold */
-void HAL_TSENS_SetLowThreshold(uint16_t);
-void HAL_TSENS_SetHiThreshold(uint16_t);
+void HAL_TSENS_SetLowThresholdRaw(uint16_t raw_value);
+void HAL_TSENS_SetHiThresholdRaw(uint16_t raw_value);
+void HAL_TSENS_SetLowThreshold(int32_t value);
+void HAL_TSENS_SetHiThreshold(int32_t value);
 /* Настройка прерываний  */
 void HAL_TSENS_LowIrq_Enable();
 void HAL_TSENS_LowIrq_Disable();
@@ -58,16 +73,16 @@ void HAL_TSENS_EOCIrq_Enable();
 void HAL_TSENS_EOCIrq_Disable();
 void HAL_TSENS_EOCIrq_Clear();
 /* Чтение флагов прерываний */
-bool HAL_TSENS_LowIrq_Event();
-bool HAL_TSENS_HiIrq_Event();
-bool HAL_TSENS_EOCIrq_Event();
+HAL_StatusTypeDef HAL_TSENS_LowIrq_Event();
+HAL_StatusTypeDef HAL_TSENS_HiIrq_Event();
+HAL_StatusTypeDef HAL_TSENS_EOCIrq_Event();
 /* Чтение данных */
-float HAL_TSENS_ReadMeasurement();
-float HAL_TSENS_SingleMeasurement();
+int32_t HAL_TSENS_ReadMeasurement();
+int32_t HAL_TSENS_SingleMeasurement();
 
 /* Установка TRIM (только для версии V0) */
 #ifdef MIK32V0
-void HAL_TSENS_SetTrim(uint8_t);
+void HAL_TSENS_SetTrim(uint8_t trim_value);
 #endif
 
 #endif
