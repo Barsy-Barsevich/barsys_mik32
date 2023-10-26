@@ -27,8 +27,8 @@ int main()
     UART_Init(UART_0, 3333, UART_CONTROL1_TE_M | UART_CONTROL1_M_8BIT_M, 0, 0);
     GPIO_Init();
     
-	HAL_TSENS_Init();
-	xprintf("%d", HAL_TSENS_ClockSource(TSENS_LSI32K));//TSENS_SYS_CLK));
+	HAL_TSENS_MspInit();
+	//xprintf("%d", HAL_TSENS_ClockSource(HAL_TSENS_LSI32K));//HAL_TSENS_SYS_CLK));
 	xprintf("\n");
 
 	for (uint32_t i=30000ul; i<110000ul; i+=1000ul)
@@ -39,6 +39,8 @@ int main()
 
 	while (1) {
 		xprintf("%d", (uint32_t)HAL_TSENS_SingleMeasurement());
+        //HAL_TSENS_ContiniousOn();
+        //xprintf("%d", HAL_TSENS_ReadMeasurement());
 		xprintf("\n");
 		for (uint32_t i=0; i<1000000; i++);
 	}
@@ -57,22 +59,22 @@ void Clock_test(uint32_t freq)
 	uint32_t f_real = 0;
     switch (_hal_tsens_clkmux_)
     {
-        case 0: //TSENS_SYS_CLK
+        case HAL_TSENS_SYS_CLK:
             f_real = F_CPU / (PM->DIV_AHB + 1) / (PM->DIV_APB_P + 1);
             break;
-        case 1: //TSENS_HCLK
+        case HAL_TSENS_HCLK:
             f_real = F_CPU / (PM->DIV_APB_P + 1);
             break;
-        case 2: //TSENS_EXTERNAL_32MHZ
+        case HAL_TSENS_EXTERNAL_32MHZ:
             f_real = 32000000UL;
             break;
-        case 3: //TSENS_HSI32M
+        case HAL_TSENS_HSI32M:
             f_real = 32000000UL;
             break;
-        case 4: //TSENS_EXTERNAL_32KHZ
+        case HAL_TSENS_EXTERNAL_32KHZ:
             f_real = 32000UL;
             break;
-        case 5: //TSENS_LSI32K
+        case HAL_TSENS_LSI32K:
             f_real = 32000UL;
             break;
     }
