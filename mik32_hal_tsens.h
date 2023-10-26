@@ -17,19 +17,11 @@
  */
 #define F_CPU 32000000UL
 
-/*#define TSENS_SYS_CLK           0x0
-#define TSENS_HCLK              0x1
-#define TSENS_EXTERNAL_32MHZ    0x2
-#define TSENS_HSI32M            0x3
-#define TSENS_EXTERNAL_32KHZ    0x4
-#define TSENS_LSI32K            0x5*/
-
-
 /*
  * Define
  * Константы-параметры функции установки источника тактирования TSENS
  */
-typedef enum
+typedef enum __HAL_TSENS_ClockTypeDef
 {
     HAL_TSENS_SYS_CLK         = 0x0,
     HAL_TSENS_HCLK            = 0x1,
@@ -51,12 +43,13 @@ uint8_t _hal_tsens_clkmux_;
 
 /* Инициализация и начальная настройка */
 void HAL_TSENS_MspInit();
+void HAL_TSENS_Init();
 HAL_StatusTypeDef HAL_TSENS_ClockSource(HAL_TSENS_ClockTypeDef clock_source);
 HAL_StatusTypeDef HAL_TSENS_ClockDivider(uint16_t clock_divider);
 HAL_StatusTypeDef HAL_TSENS_Clock(uint32_t clock_frequency_hz);
 void HAL_TSENS_SingleBegin();
-void HAL_TSENS_ContiniousOn();
-void HAL_TSENS_ContiniousOff();
+void HAL_TSENS_ContinuousOn();
+void HAL_TSENS_ContinuousOff();
 /* Установка значений температурных пределов threshold */
 void HAL_TSENS_SetLowThresholdRaw(uint16_t raw_value);
 void HAL_TSENS_SetHiThresholdRaw(uint16_t raw_value);
