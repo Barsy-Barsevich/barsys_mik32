@@ -27,7 +27,7 @@ int main()
     UART_Init(UART_0, 3333, UART_CONTROL1_TE_M | UART_CONTROL1_M_8BIT_M, 0, 0);
     GPIO_Init();
     
-	HAL_TSENS_MspInit();
+	HAL_TSENS_Init();
 	//xprintf("%d", HAL_TSENS_ClockSource(HAL_TSENS_LSI32K));//HAL_TSENS_SYS_CLK));
 	xprintf("\n");
 
