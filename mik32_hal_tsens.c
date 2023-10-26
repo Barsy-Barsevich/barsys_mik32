@@ -1,14 +1,24 @@
 #include "mik32_hal_tsens.h"
 
 /*!
+@brief  Функция включения тактирования аналогового блока (включающего термосенсор)
+@param  нет
+@return нет
+*/
+__attribute__((weak)) void HAL_TSENS_MspInit()
+{
+    //PM->CLK_APB_P_SET = PM_CLOCK_APB_P_ANALOG_REGS_M;
+    __HAL_PCC_ANALOG_REGS_CLK_ENABLE();
+}
+
+/*!
 @brief  Функция начальной инициализации термосенсора
 @param  нет
 @return нет
 */
-void HAL_TSENS_MspInit()
+void HAL_TSENS_Init()
 {
-    /* Тактирование аналогового блока */
-	PM->CLK_APB_P_SET = PM_CLOCK_APB_P_ANALOG_REGS_M;
+    HAL_TSENS_MspInit();
     /* Включение, тактирование температурного сенсора, отключение режима сброса */
     ANALOG_REG->TSENS_CFG = (1<<TSENS_CFG_NRST_S)|
 							(1<<TSENS_CFG_NPD_CLK_S)|
@@ -33,34 +43,34 @@ void HAL_TSENS_MspInit()
     true, если источник тактирования установлен успешно
     false, если входной параметр некорректен или если выбираемая частота меньше минимальной
 */
-HAL_StatusTypeDef HAL_TSENS_ClockSource(HAL_TSENS_ClockTypeDef data)
+HAL_StatusTypeDef HAL_TSENS_ClockSource(HAL_TSENS_ClockTypeDef clk_source)
 {
     uint32_t f_real;
-    switch (data)
+    switch (clk_source)
     {
-        case 0: //TSENS_SYS_CLK
+        case HAL_TSENS_SYS_CLK:
             f_real = F_CPU / (PM->DIV_AHB + 1) / (PM->DIV_APB_P + 1);
             break;
-        case 1: //TSENS_HCLK
+        case HAL_TSENS_HCLK:
             f_real = F_CPU / (PM->DIV_APB_P + 1);
             break;
-        case 2: //TSENS_EXTERNAL_32MHZ
+        case HAL_TSENS_EXTERNAL_32MHZ:
             f_real = 32000000UL;
             break;
-        case 3: //TSENS_HSI32M
+        case HAL_TSENS_HSI32M:
             f_real = 32000000UL;
             break;
-        case 4: //TSENS_EXTERNAL_32KHZ
+        case HAL_TSENS_EXTERNAL_32KHZ:
             f_real = 32000UL;
             break;
-        case 5: //TSENS_LSI32K
+        case HAL_TSENS_LSI32K:
             f_real = 32000UL;
             break;
         default:
             return HAL_ERROR;
     }
     if (f_real < 32000UL) return HAL_ERROR;
-    _hal_tsens_clkmux_ = data;
+    _hal_tsens_clkmux_ = clk_source;
     ANALOG_REG->TSENS_CFG &= ~TSENS_CFG_CLK_MUX_M;
     ANALOG_REG->TSENS_CFG |= (_hal_tsens_clkmux_ << TSENS_CFG_CLK_MUX_S);
     HAL_TSENS_Clock(50000ul);  //< Предустановка частоты tsens
@@ -74,32 +84,32 @@ HAL_StatusTypeDef HAL_TSENS_ClockSource(HAL_TSENS_ClockTypeDef data)
     true, если делитель частоты установлен успешно
     false, если делитель частоты слишком мал или слишком велик
 */
-HAL_StatusTypeDef HAL_TSENS_ClockDivider(uint16_t data)
+HAL_StatusTypeDef HAL_TSENS_ClockDivider(uint16_t clk_div)
 {
-    data &= 0x3FF;
+    clk_div &= 0x3FF;
     //32kHz < fclk < 100kHz
     uint32_t divider;
     switch (_hal_tsens_clkmux_)
     {
-        case 0: //TSENS_SYS_CLK
-            divider = ((uint16_t)PM->DIV_AHB + 1) * ((uint16_t)PM->DIV_APB_P + 1) * (data + 1);
+        case HAL_TSENS_SYS_CLK:
+            divider = ((uint16_t)PM->DIV_AHB + 1) * ((uint16_t)PM->DIV_APB_P + 1) * (clk_div + 1);
             if ((F_CPU / divider > 100000UL)||(F_CPU / divider < 32000UL)) return false;
             break;
-        case 1: //TSENS_HCLK
-            divider = ((uint16_t)PM->DIV_APB_P + 1) * (data + 1);
+        case HAL_TSENS_HCLK:
+            divider = ((uint16_t)PM->DIV_APB_P + 1) * (clk_div + 1);
             if ((F_CPU / divider > 100000UL)||(F_CPU / divider < 32000UL)) return false;
             break;
-        case 2: //TSENS_EXTERNAL_32MHZ
-            if ((data < 320)||(data > 1000)) return false;
+        case HAL_TSENS_EXTERNAL_32MHZ:
+            if ((clk_div < 320)||(clk_div > 1000)) return false;
             break;
-        case 3: //TSENS_HSI32M
-            if ((data < 320)||(data > 1000)) return false;
+        case HAL_TSENS_HSI32M:
+            if ((clk_div < 320)||(clk_div > 1000)) return false;
             break;
-        case 4: //TSENS_EXTERNAL_32KHZ
-            data = 0;
+        case HAL_TSENS_EXTERNAL_32KHZ:
+            clk_div = 0;
             break;
-        case 5: //TSENS_LSI32K
-            data = 0;
+        case HAL_TSENS_LSI32K:
+            clk_div = 0;
             break;
         default:
             return HAL_ERROR;
@@ -111,7 +121,7 @@ HAL_StatusTypeDef HAL_TSENS_ClockDivider(uint16_t data)
     ANALOG_REG->TSENS_CFG &= 0b11111111111111110000000000111111;
 #endif*/
     ANALOG_REG->TSENS_CFG &= ~TSENS_CFG_DIV_M;
-    ANALOG_REG->TSENS_CFG |= (data<<TSENS_CFG_DIV_S);
+    ANALOG_REG->TSENS_CFG |= (clk_div<<TSENS_CFG_DIV_S);
     return HAL_OK;
 }
 
@@ -129,22 +139,22 @@ HAL_StatusTypeDef HAL_TSENS_Clock(uint32_t f_enter)
     uint32_t f_real;
     switch (_hal_tsens_clkmux_)
     {
-        case 0: //TSENS_SYS_CLK
+        case HAL_TSENS_SYS_CLK:
             f_real = F_CPU / (PM->DIV_AHB + 1) / (PM->DIV_APB_P + 1);
             break;
-        case 1: //TSENS_HCLK
+        case HAL_TSENS_HCLK:
             f_real = F_CPU / (PM->DIV_APB_P + 1);
             break;
-        case 2: //TSENS_EXTERNAL_32MHZ
+        case HAL_TSENS_EXTERNAL_32MHZ:
             f_real = 32000000UL;
             break;
-        case 3: //TSENS_HSI32M
+        case HAL_TSENS_HSI32M:
             f_real = 32000000UL;
             break;
-        case 4: //TSENS_EXTERNAL_32KHZ
+        case HAL_TSENS_EXTERNAL_32KHZ:
             f_real = 32000UL;
             break;
-        case 5: //TSENS_LSI32K
+        case HAL_TSENS_LSI32K:
             f_real = 32000UL;
             break;
         default:
@@ -194,7 +204,7 @@ void HAL_TSENS_SingleBegin()
 @param  нет
 @return нет
 */
-void HAL_TSENS_ContiniousOn()
+void HAL_TSENS_ContinuousOn()
 {
     ANALOG_REG->TSENS_CONTINUOUS |= 1;
 }
@@ -204,7 +214,7 @@ void HAL_TSENS_ContiniousOn()
 @param  нет
 @return нет
 */
-void HAL_TSENS_ContiniousOff()
+void HAL_TSENS_ContinuousOff()
 {
     ANALOG_REG->TSENS_CONTINUOUS &= ~1;
 }
@@ -256,7 +266,7 @@ void HAL_TSENS_SetHiThreshold(int32_t data)
 }
 
 /*!
-@brief  Функция разрешения прерываний по вектору LOW_THRESHOLD_IRQ
+@brief  Функция разрешения прерываний по флагу LOW_THRESHOLD_IRQ
 @param  нет
 @return нет
 */
@@ -266,7 +276,7 @@ void HAL_TSENS_LowIrq_Enable()
 }
 
 /*!
-@brief  Функция запрета прерываний по вектору LOW_THRESHOLD_IRQ
+@brief  Функция запрета прерываний по флагу LOW_THRESHOLD_IRQ
 @param  нет
 @return нет
 */
@@ -298,7 +308,7 @@ HAL_StatusTypeDef HAL_TSENS_LowIrq_Event()
 }
 
 /*!
-@brief  Функция разрешения прерываний по вектору HI_THRESHOLD_IRQ
+@brief  Функция разрешения прерываний по флагу HI_THRESHOLD_IRQ
 @param  нет
 @return нет
 */
@@ -308,7 +318,7 @@ void HAL_TSENS_HiIrq_Enable()
 }
 
 /*!
-@brief  Функция запрета прерываний по вектору HI_THRESHOLD_IRQ
+@brief  Функция запрета прерываний по флагу HI_THRESHOLD_IRQ
 @param  нет
 @return нет
 */
@@ -340,7 +350,7 @@ HAL_StatusTypeDef HAL_TSENS_HiIrq_Event()
 }
 
 /*!
-@brief  Функция разрешения прерываний по вектору EOC_IRQ
+@brief  Функция разрешения прерываний по флагу EOC_IRQ
 @param  нет
 @return нет
 */
@@ -350,7 +360,7 @@ void HAL_TSENS_EOCIrq_Enable()
 }
 
 /*!
-@brief  Функция запрета прерываний по вектору EOC_IRQ
+@brief  Функция запрета прерываний по флагу EOC_IRQ
 @param  нет
 @return нет
 */
@@ -390,7 +400,14 @@ HAL_StatusTypeDef HAL_TSENS_EOCIrq_Event()
 int32_t HAL_TSENS_ReadMeasurement()
 {
     uint32_t value = ANALOG_REG->TSENS_VALUE & 0x3FF;
-    return TSENS_VALUE_TO_CELSIUS(value);
+    //return TSENS_VALUE_TO_CELSIUS(value);
+//TODO: упростить формулы
+#ifdef MIK32V0
+    return (61920*(value)/10240*10-27315)/10;
+#endif
+#ifdef MIK32V2
+    return ((640660*(value))/(40960+93*(value))*10-27315)/10;
+#endif
 }
 
 /*!
