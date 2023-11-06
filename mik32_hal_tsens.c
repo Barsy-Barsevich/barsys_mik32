@@ -212,7 +212,7 @@ void HAL_TSENS_ContinuousOff()
 void HAL_TSENS_SetLowThresholdRaw(uint16_t low_tres)
 {
     low_tres &= 0x3FF;
-    ANALOG_REG->TSENS_CFG = (ANALOG_REG->TSENS_CFG & (~TSENS_TRESHOLD_LOW_M)) | ((uint32_t)low_tres << TSENS_TRESHOLD_LOW_S);
+    ANALOG_REG->TSENS_THRESHOLD = (ANALOG_REG->TSENS_THRESHOLD & (~TSENS_TRESHOLD_LOW_M)) | ((uint32_t)low_tres << TSENS_TRESHOLD_LOW_S);
     
 }
 
@@ -224,7 +224,7 @@ void HAL_TSENS_SetLowThresholdRaw(uint16_t low_tres)
 void HAL_TSENS_SetHiThresholdRaw(uint16_t hi_tres)
 {
     hi_tres &= 0x3FF;
-    ANALOG_REG->TSENS_CFG = (ANALOG_REG->TSENS_CFG & (~TSENS_TRESHOLD_HI_M)) | ((uint32_t)hi_tres << TSENS_TRESHOLD_HI_S);
+    ANALOG_REG->TSENS_THRESHOLD = (ANALOG_REG->TSENS_THRESHOLD & (~TSENS_TRESHOLD_HI_M)) | ((uint32_t)hi_tres << TSENS_TRESHOLD_HI_S);
 }
 
 /*!
@@ -232,9 +232,16 @@ void HAL_TSENS_SetHiThresholdRaw(uint16_t hi_tres)
 @param  значение low_tres (int32_t)
 @return нет
 */
-void HAL_TSENS_SetLowThreshold(int32_t low_temp_border)
+void HAL_TSENS_SetLowThreshold(int low_temp_border)
 {
-    HAL_TSENS_SetLowThresholdRaw(TSENS_CELSIUS_TO_VALUE(low_temp_border));
+    //HAL_TSENS_SetLowThresholdRaw(TSENS_CELSIUS_TO_VALUE(low_temp_border));
+#ifdef MIK32V0
+    uint32_t value = ((low_temp_border * 100 + 27315UL) * 1024) / 61920;
+#endif
+#ifdef MIK32V2
+    uint32_t value = (40960ul/(6406600ul/(low_temp_border*100+27315)-93));
+#endif
+    HAL_TSENS_SetLowThresholdRaw(value);
 }
 
 /*!
@@ -242,9 +249,16 @@ void HAL_TSENS_SetLowThreshold(int32_t low_temp_border)
 @param  значение hi_temp_border (int32_t)
 @return нет
 */
-void HAL_TSENS_SetHiThreshold(int32_t hi_temp_border)
+void HAL_TSENS_SetHiThreshold(int hi_temp_border)
 {
-    HAL_TSENS_SetHiThresholdRaw(TSENS_CELSIUS_TO_VALUE(hi_temp_border));
+    //HAL_TSENS_SetHiThresholdRaw(TSENS_CELSIUS_TO_VALUE(hi_temp_border));
+#ifdef MIK32V0
+    uint32_t value = ((low_temp_border * 100 + 27315UL) * 1024) / 61920;
+#endif
+#ifdef MIK32V2
+    uint32_t value = (40960ul/(6406600ul/(hi_temp_border*100+27315)-93));
+#endif
+    HAL_TSENS_SetHiThresholdRaw(value);
 }
 
 /*!
