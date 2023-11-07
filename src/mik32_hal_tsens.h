@@ -53,8 +53,8 @@ void HAL_TSENS_ContinuousOff();
 /* Установка значений температурных пределов threshold */
 void HAL_TSENS_SetLowThresholdRaw(uint16_t raw_value);
 void HAL_TSENS_SetHiThresholdRaw(uint16_t raw_value);
-void HAL_TSENS_SetLowThreshold(int32_t value);
-void HAL_TSENS_SetHiThreshold(int32_t value);
+void HAL_TSENS_SetLowThreshold(int value);
+void HAL_TSENS_SetHiThreshold(int value);
 /* Настройка прерываний  */
 void HAL_TSENS_LowIrq_Enable();
 void HAL_TSENS_LowIrq_Disable();
