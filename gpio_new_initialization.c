@@ -23,13 +23,13 @@ typedef enum __HAL_Current
 
 
 void SystemClock_Config(void);
-void HAL_GPIO_INIT(HAL_PinMapNewTypeDef, HAL_Des, HAL_Pul, HAL_Current);
+void HAL_GPIO_PinMode(HAL_PinMapNewTypeDef, HAL_Des, HAL_Pul, HAL_Current);
 
 
 int main()
 {
     SystemClock_Config();
-    HAL_GPIO_INIT(PORT2_7, OUTPUT, PULL_NONE, _8mA);
+    HAL_GPIO_PinMode(PORT2_7, OUTPUT, PULL_NONE, _8mA);
     while (1)
     {
         HAL_GPIO_TogglePin(GPIO_2, PORT2_7);
@@ -38,7 +38,7 @@ int main()
 }
 
 
-void HAL_GPIO_INIT(HAL_PinMapNewTypeDef pin, HAL_Des des, HAL_Pul pul, HAL_Current current)
+void HAL_GPIO_PinMode(HAL_PinMapNewTypeDef pin, HAL_Des des, HAL_Pul pul, HAL_Current current)
 {
     __HAL_PCC_GPIO_0_CLK_ENABLE();
     __HAL_PCC_GPIO_1_CLK_ENABLE();
