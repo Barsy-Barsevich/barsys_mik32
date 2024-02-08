@@ -5,6 +5,9 @@
 #include "uart_lib.h"
 #include "xprintf.h"
 
+#define DISP_FREQUENCY  400 //Hz
+#define CLOCK_WITH_SECONDS
+
 #define SEG_A_PORT      GPIO_1
 #define SEG_B_PORT      GPIO_1
 #define SEG_C_PORT      GPIO_1
@@ -34,7 +37,9 @@
 #define CAT_4_PIN       GPIO_PIN_14
 #define CAT_5_PIN       GPIO_PIN_15
 
-
+#define MODE_BIT        0
+#define PUSHED_BIT      1
+#define DISPON_BIT      2
 
 
 
@@ -52,6 +57,16 @@ void DisplayOff();
 void DisplayOn(uint8_t razr);
 uint8_t BCDtoSEG7(uint8_t bcd);
 
+void Interrupt_do(void);
+void ClockProcess(void);
+void Extint_do();
+
+uint8_t indicated_razr;
+uint8_t StringOfNumbers[6] = {'0','0','0','0','0','0'};
+uint16_t period_counter = 0;
+uint8_t extint_mode = 0, disp_seg;
+int32_t time, time_metka;
+
 /*
  * Пример для платы BOARD_LITE
  * В данном примере демонстрируется работа прерываний TIMER16_1. 
@@ -65,9 +80,7 @@ uint8_t BCDtoSEG7(uint8_t bcd);
 int main()
 {    
     HAL_Init();
-    
     SystemClock_Config();
-
     GPIO_Init();
 
     UART_Init(UART_0, 3333, UART_CONTROL1_TE_M | UART_CONTROL1_M_8BIT_M, 0, 0);
@@ -78,11 +91,11 @@ int main()
     // HAL_Timer16_SetCMP(&htimer16_1, htimer16_1.Period/2); 
 
     /* Включать прерывания Timer16 рекомендуется после его инициализации */
-    HAL_EPIC_MaskLevelSet(HAL_EPIC_TIMER16_1_MASK); 
+    HAL_EPIC_MaskLevelSet(HAL_EPIC_TIMER16_1_MASK | HAL_EPIC_GPIO_IRQ_MASK);
     HAL_IRQ_EnableInterrupts();
 
     /* Запуск таймера в одиночном или продолжительном режиме */
-    HAL_Timer16_Counter_Start(&htimer16_1, 60000);
+    HAL_Timer16_Counter_Start(&htimer16_1, OSC_SYSTEM_VALUE/32/DISP_FREQUENCY);
 
     /*****************Запуск таймера в одиночном или продолжительном режиме*****************/
     // HAL_Timer16_StartSingleMode(&htimer16_1); /* Одиночный режим */
@@ -90,11 +103,11 @@ int main()
     /***************************************************************************************/
 
     /* Запуск таймера с ШИМ сигналом */
-    HAL_Timer16_StartPWM_IT(&htimer16_1, 0xFFFF, 0xFFFF/3);
+    //HAL_Timer16_StartPWM_IT(&htimer16_1, 100, 0x3);
     
     while (1)
     {    
-        xprintf("Counter = %d\n", HAL_Timer16_GetCounterValue(&htimer16_1));
+        //xprintf("Counter = %d\n", HAL_Timer16_GetCounterValue(&htimer16_1));
     }
        
 }
@@ -117,20 +130,19 @@ void SystemClock_Config(void)
     HAL_PCC_Config(&PCC_OscInit);
 }
 
-
 static void Timer16_1_Init(void)
 {
     htimer16_1.Instance = TIMER16_1;
     /* Настройка тактирования */
-    htimer16_1.Clock.Source = TIMER16_SOURCE_INTERNAL_SYSTEM;
+    htimer16_1.Clock.Source = TIMER16_SOURCE_INTERNAL_OSC32M;//TIMER16_SOURCE_INTERNAL_SYSTEM;
     htimer16_1.CountMode = TIMER16_COUNTMODE_INTERNAL;  /* При тактировании от Input1 не имеет значения */
-    htimer16_1.Clock.Prescaler = TIMER16_PRESCALER_128;
+    htimer16_1.Clock.Prescaler = TIMER16_PRESCALER_32;
     htimer16_1.ActiveEdge = TIMER16_ACTIVEEDGE_RISING;  /* Выбирается при тактировании от Input1 */
     /* Настройка режима обновления регистра ARR и CMP */
     htimer16_1.Preload = TIMER16_PRELOAD_AFTERWRITE;
     /* Настройка триггера */
     htimer16_1.Trigger.Source = TIMER16_TRIGGER_TIM1_GPIO1_9; 
-    htimer16_1.Trigger.ActiveEdge = TIMER16_TRIGGER_ACTIVEEDGE_RISING;    /* При использовании триггера значение должно быть отлично от software */
+    htimer16_1.Trigger.ActiveEdge = TIMER16_TRIGGER_ACTIVEEDGE_SOFTWARE;    /* При использовании триггера значение должно быть отлично от software */
     htimer16_1.Trigger.TimeOut = TIMER16_TIMEOUT_DISABLE;   /* Разрешить повторное срабатывание триггера */
     /* Настройки фильтра */
     htimer16_1.Filter.ExternalClock = TIMER16_FILTER_NONE;
@@ -138,7 +150,7 @@ static void Timer16_1_Init(void)
     /* Настройка режима энкодера */
     htimer16_1.EncoderMode = TIMER16_ENCODER_DISABLE;
     /* Выходной сигнал */
-    htimer16_1.Waveform.Enable = TIMER16_WAVEFORM_GENERATION_ENABLE;
+    htimer16_1.Waveform.Enable = TIMER16_WAVEFORM_GENERATION_DISABLE;
     htimer16_1.Waveform.Polarity = TIMER16_WAVEFORM_POLARITY_NONINVERTED;
     HAL_Timer16_Init(&htimer16_1);
     /* ARR setting */
@@ -146,6 +158,9 @@ static void Timer16_1_Init(void)
     //HAL_Timer16_SetARR(&htimer16_1, 60000);
     //HAL_Timer16_ClearInterruptMask(&htimer16_1, 0x11111111);
     HAL_Timer16_SetInterruptARRM(&htimer16_1);
+
+    //HAL_Timer16_SetPrescaler(&htimer16_1, 1);
+    //HAL_Timer16_SetARR(&htimer16_1, 10000);
 }
 
 void trap_handler()
@@ -156,55 +171,63 @@ void trap_handler()
 
         if (interrupt_status & TIMER16_ISR_DOWN_M)
         {
-            xprintf("\nDOWN_IRQ\n");
+            //xprintf("\nDOWN_IRQ\n");
             /* code */
             // HAL_Timer16_ClearInterruptFlag(&htimer16_1, TIMER16_DOWN_IRQ); /* Сброс флага прерывания */
         }
 
         if (interrupt_status & TIMER16_ISR_UP_M)
         {
-            xprintf("\nUP_IRQ\n");
+            //xprintf("\nUP_IRQ\n");
             /* code */
             // HAL_Timer16_ClearInterruptFlag(&htimer16_1, TIMER16_UP_IRQ); /* Сброс флага прерывания */
         }
 
         if (interrupt_status & TIMER16_ISR_ARR_OK_M)
         {
-            xprintf("\nARROK_IRQ\n");
+            //xprintf("\nARROK_IRQ\n");
             /* code */
             // HAL_Timer16_ClearInterruptFlag(&htimer16_1, TIMER16_ARROK_IRQ); /* Сброс флага прерывания */
         }
 
         if (interrupt_status & TIMER16_ISR_CMP_OK_M)
         {
-            xprintf("\nCMPOK_IRQ\n");
+            //xprintf("\nCMPOK_IRQ\n");
             /* code */
             // HAL_Timer16_ClearInterruptFlag(&htimer16_1, TIMER16_CMPOK_IRQ); /* Сброс флага прерывания */
         }  
 
         if (interrupt_status & TIMER16_ISR_EXT_TRIG_M)
         {
-            xprintf("\nEXTTRIG_IRQ\n");
+            //xprintf("\nEXTTRIG_IRQ\n");
             /* code */
             // HAL_Timer16_ClearInterruptFlag(&htimer16_1, TIMER16_EXTTRIG_IRQ); /* Сброс флага прерывания */
         }  
 
         if (interrupt_status & TIMER16_ISR_ARR_MATCH_M)
         {
-            xprintf("\nARRM_IRQ\n");
+            //xprintf("\nARRM_IRQ\n");
             /* code */
-            //HAL_GPIO_TogglePin(GPIO_2, GPIO_PIN_7);
+            Interrupt_do();
             // HAL_Timer16_ClearInterruptFlag(&htimer16_1, TIMER16_ARRM_IRQ); /* Сброс флага прерывания */
         }  
 
         if (interrupt_status & TIMER16_ISR_CMP_MATCH_M)
         {
-            xprintf("\nCMPM_IRQ\n");
-            HAL_GPIO_TogglePin(GPIO_2, GPIO_PIN_7); /* Смена сигнала PORT2_7 на противоположный */
+            //xprintf("\nCMPM_IRQ\n");
             // HAL_Timer16_ClearInterruptFlag(&htimer16_1, TIMER16_CMPM_IRQ); /* Сброс флага прерывания */
         }  
 
         HAL_Timer16_ClearInterruptMask(&htimer16_1, 0xFFFFFFFF); /* Сброс нескольких флагов прерываний по маске */
+    }
+    if (EPIC_CHECK_GPIO_IRQ())
+    {
+        //if (HAL_GPIO_LineInterruptState(GPIO_LINE_2))
+        //{
+            HAL_GPIO_TogglePin(GPIO_2, GPIO_PIN_7); /* Смена сигнала PORT2_7 на противоположный */
+            Extint_do();
+        //}
+        HAL_GPIO_ClearInterrupts();
     }
 
 
@@ -224,13 +247,16 @@ void GPIO_Init()
     GPIO_InitStruct.Pull = HAL_GPIO_PULL_NONE;
     HAL_GPIO_Init(GPIO_2, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = GPIO_PIN_9;
-    GPIO_InitStruct.Mode = HAL_GPIO_MODE_GPIO_INPUT;
-    HAL_GPIO_Init(GPIO_1, &GPIO_InitStruct);
-
+    // GPIO_InitStruct.Pin = GPIO_PIN_9;
+    // GPIO_InitStruct.Mode = HAL_GPIO_MODE_GPIO_INPUT;
+    // HAL_GPIO_Init(GPIO_1, &GPIO_InitStruct);
+    // HAL_GPIO_InitInterruptLine(GPIO_MUX_PORT1_9_LINE_1, GPIO_INT_MODE_FALLING);
     GPIO_InitStruct.Pin = GPIO_PIN_6;
     GPIO_InitStruct.Mode = HAL_GPIO_MODE_GPIO_INPUT;
+    GPIO_InitStruct.Pull = HAL_GPIO_PULL_NONE;
     HAL_GPIO_Init(GPIO_2, &GPIO_InitStruct);
+    HAL_GPIO_InitInterruptLine(GPIO_MUX_PORT2_6_LINE_2, GPIO_INT_MODE_FALLING);
+
 
     HAL_GPIO_PinConfig(SEG_A_PORT, SEG_A_PIN, __OUTPUT, __PULL_NONE, __DS_8MA);
     HAL_GPIO_PinConfig(SEG_B_PORT, SEG_B_PIN, __OUTPUT, __PULL_NONE, __DS_8MA);
@@ -254,15 +280,133 @@ void GPIO_Init()
 
 
 
+void Interrupt_do()
+{
+    time += 1;
+    period_counter += 1;
+    if (period_counter >= 400)
+    {
+        period_counter = 0;
+        ClockProcess();
+    }
+    DisplayOff();
+    indicated_razr += 1;
+    if (indicated_razr > 5) indicated_razr = 0;
+    SegmentPrint(StringOfNumbers[indicated_razr]);
+    DisplayOn(indicated_razr);
+}
+
+void Extint_do()
+{
+    extint_mode ^= (1<<PUSHED_BIT);
+    if (extint_mode & (1<<PUSHED_BIT) == 0) /* Прерывание пришло при отпускании кнопки */
+    {
+        HAL_GPIO_InitInterruptLine(GPIO_MUX_PORT2_6_LINE_2, GPIO_INT_MODE_FALLING);
+        /* Смотрим, сколько времени прошло с момента нажатия */
+        time_metka = time - time_metka;
+        if (time_metka < 0) time_metka = -time_metka;
+        /* Режим отображения */
+        if (extint_mode & (1<<MODE_BIT) == 0)
+        {
+            if (time_metka > 1*DISP_FREQUENCY) /* Короткое нажатие >1с */
+            {
+                extint_mode ^= (1<<DISPON_BIT);
+            }
+            else if (time_metka > 10*DISP_FREQUENCY) /* Длинное нажатие >10с */
+            {
+                extint_mode |= (1<<MODE_BIT);
+                disp_seg = 5;
+            }
+        }
+        /* Режим настроек */
+        else
+        {
+            if (time_metka > 1*DISP_FREQUENCY) /* Короткое нажатие >1с */
+            {
+                StringOfNumbers[disp_seg] += 1;
+                if (((disp_seg == 5) || (disp_seg == 3)) && (StringOfNumbers[disp_seg] > '9')) StringOfNumbers[disp_seg] = 0;
+                else if (((disp_seg == 4)||(disp_seg == 2)) && (StringOfNumbers[disp_seg] > '5')) StringOfNumbers[disp_seg] = 0;
+                else if ((disp_seg == 0)&&(StringOfNumbers[disp_seg] > '2')) StringOfNumbers[disp_seg] = 0;
+                else if (StringOfNumbers[0] == '2')
+                {
+                    if (StringOfNumbers[1] > '3')
+                    {
+                        StringOfNumbers[0] = '0';
+                        StringOfNumbers[1] = '0';
+                    }
+                }
+                else if (StringOfNumbers[1] > '9')
+                {
+                    StringOfNumbers[0] += 1;
+                    StringOfNumbers[1] = '0';
+                }
+            }
+            else if (time_metka > 5*DISP_FREQUENCY) /* Длинное нажатие > 5с */
+            {
+                if (disp_seg == 0) extint_mode ^= (1<<MODE_BIT);
+                disp_seg -= 1;
+            }
+        }
+    }
+    else 
+    {
+        HAL_GPIO_InitInterruptLine(GPIO_MUX_PORT2_6_LINE_2, GPIO_INT_MODE_RISING);
+        time_metka = time;
+    }
+}
 
 
 
 
+#ifdef CLOCK_WITH_SECONDS
+void ClockProcess()
+{
+    StringOfNumbers[5] += 1;
+    if (StringOfNumbers[5] > '9')
+    {
+        StringOfNumbers[5] = '0';
+        StringOfNumbers[4] += 1;
+        if (StringOfNumbers[4] > '5')
+        {
+            StringOfNumbers[4] = '0';
+            StringOfNumbers[3] += 1;
+            if (StringOfNumbers[3] > '9')
+            {
+                StringOfNumbers[3] = '0';
+                StringOfNumbers[2] += 1;
+                if (StringOfNumbers[2] > '5')
+                {
+                    StringOfNumbers[2] = '0';
+                    StringOfNumbers[1] += 1;
+                    if (StringOfNumbers[0] == '2')
+                    {
+                        if (StringOfNumbers[1] > '3')
+                        {
+                            StringOfNumbers[0] = '0';
+                            StringOfNumbers[1] = '0';
+                        }
+                    }
+                    else
+                    {
+                        if (StringOfNumbers[1] > '9')
+                        {
+                            StringOfNumbers[1] = '0';
+                            StringOfNumbers[0] += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+#else
 
+#endif
 
 
 void SegmentPrint(uint8_t data)
 {
+    data = BCDtoSEG7(data);
     HAL_GPIO_WritePin(SEG_A_PORT, SEG_A_PIN, (data>>7)&1);
     HAL_GPIO_WritePin(SEG_B_PORT, SEG_B_PIN, (data>>6)&1);
     HAL_GPIO_WritePin(SEG_C_PORT, SEG_C_PIN, (data>>5)&1);
@@ -283,6 +427,7 @@ void DisplayOff()
 }
 void DisplayOn(uint8_t razr)
 {
+    if (extint_mode & (1<<DISPON_BIT) == 1) return;
     razr &= 0b00000111;
     uint8_t data = ~(1<<razr);
     HAL_GPIO_WritePin(CAT_0_PORT, CAT_0_PIN, (data>>0)&1);
