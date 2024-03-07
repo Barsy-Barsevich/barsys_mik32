@@ -4,6 +4,7 @@
 #include "mik32_hal_scr1_timer.h"
 #include "mik32_hal_spi.h"
 #include "MPU9250_RegisterMap.c"
+#include "GKalman.c"
 
 //Mag options
 #define MAG_RESOLUTION_14b          0
@@ -16,7 +17,7 @@
 #define MAG_SELF_TEST_MODE          0b1000
 #define MAG_FUSE_ROM_ACCESS_MODE    0b1111
 //Scale setting
-#define ACCEL_SCALE_2G_COEF              2./32767
+#define ACCEL_SCALE_2G_COEF         2./32767
 #define ACCEL_SCALE_4G_COEF         4./32767
 #define ACCEL_SCALE_8G_COEF         8./32767
 #define ACCEL_SCALE_16G_COEF        16./32767
@@ -39,12 +40,20 @@ typedef struct {
     uint8_t cs;
     float accel_scale;
     float gyro_scale;
-    MPU_AxesTypeDef accel;
-    MPU_AxesTypeDef gyro;
-    MPU_AxesTypeDef accel_bias;
-    MPU_AxesTypeDef gyro_bias;
+    MPU_AxesTypeDef accel;      //Значения акселерометра
+    MPU_AxesTypeDef gyro;       //Значения гироскопа
+    MPU_AxesTypeDef accel_bias; //Смещения акселерометра
+    MPU_AxesTypeDef gyro_bias;  //Смещения гироскопа
+    MPU_AxesTypeDef eps;        //Средняя погрешность недвижимого гироскопа
+    GKalman_HandlerTypeDef* filter_gx;
+    GKalman_HandlerTypeDef* filter_gy;
+    GKalman_HandlerTypeDef* filter_gz;
+    MPU_AxesTypeDef gyro_filtered;
 } MPU_HandleTypeDef;
 
+GKalman_HandlerTypeDef filter_gx;
+GKalman_HandlerTypeDef filter_gy;
+GKalman_HandlerTypeDef filter_gz;
 
 typedef enum {
     ACCEL_SCALE_2G = 0,
@@ -88,6 +97,9 @@ void mpu_setGyroScale(MPU_HandleTypeDef* local, MPU9250_GyroScale scale);
 void mpu_setAccelBandwidth(MPU_HandleTypeDef* local, MPU9250_AccelBandwidth bw);
 void mpu_setGyroBandwidth(MPU_HandleTypeDef* local, MPU9250_GyroBandwidth bw);
 void mpu_readData(MPU_HandleTypeDef* local);
+
+void mpu_CalibrateGyro(MPU_HandlerTypeDef* local);
+void mpu_GyroFilter(MPU_HandlerTypeDef* local);
 
 #include "MPU9250.c"
 
