@@ -1,15 +1,7 @@
 #include "MPU9250.h"
-//#include "SPI_Driver.h"
 
 HAL_StatusTypeDef mpu_begin(MPU_HandleTypeDef* local)
 {
-    //Установка биасов
-    local->accel_bias.x = 0;
-    local->accel_bias.y = 0;
-    local->accel_bias.z = 0;
-    local->gyro_bias.x = 0;
-    local->gyro_bias.y = 0;
-    local->gyro_bias.z = 0;
     // Настройка режима энергопотребления
     SPI_writeReg(local, MPU_PWR_MGMT_1,
         (1<<MPU_H_RESET)|
@@ -17,7 +9,7 @@ HAL_StatusTypeDef mpu_begin(MPU_HandleTypeDef* local)
         (0<<MPU_CYCLE)|
         (0<<MPU_GYRO_STANDBY));
     // Тест на MPU9250
-    //HAL_DelayMs(10);
+    HAL_DelayMs(10);
     uint8_t data;
     SPI_readReg(local, MPU_WHO_I_AM, &data);
     if ((data != MPU9250_ID_VALUE) && (data != MPU9255_ID_VALUE)) return HAL_ERROR;
@@ -42,6 +34,18 @@ HAL_StatusTypeDef mpu_begin(MPU_HandleTypeDef* local)
         (0<<MPU_DISABLE_YG)|
         (0<<MPU_DISABLE_ZG));
     //Магнитометр не нужон
+    //<>
+    //Установка биасов
+    local->accel_bias.x = 0;
+    local->accel_bias.y = 0;
+    local->accel_bias.z = 0;
+    local->gyro_bias.x = 0;
+    local->gyro_bias.y = 0;
+    local->gyro_bias.z = 0;
+    //Инициализация фильтров
+    local->filter_gx = &filter_gx;
+    local->filter_gx = &filter_gy;
+    local->filter_gx = &filter_gz;
     return HAL_OK;
 }
 
@@ -119,4 +123,57 @@ void mpu_readData(MPU_HandleTypeDef* local)
     local->gyro.x = (float)g_x * local->gyro_scale + local->gyro_bias.x;
     local->gyro.y = (float)g_y * local->gyro_scale + local->gyro_bias.y;
     local->gyro.z = (float)g_z * local->gyro_scale + local->gyro_bias.z;
+}
+
+
+
+void mpu_CalibrateGyro(MPU_HandlerTypeDef* local)
+{
+    //Обнуление значений смещений и средних отклонений
+    local->gyro_bias.x = 0;
+    local->gyro_bias.y = 0;
+    local->gyro_bias.z = 0;
+    local->eps.x = 0;
+    local->eps.y = 0;
+    local->eps.z = 0;
+    //Получить значения смещений
+    for (uint8_t i=0; i<200; i++)
+    {
+        mpu_readData(local);
+        local->gyro_bias.x += local->gyro.x;
+        local->gyro_bias.y += local->gyro.y;
+        local->gyro_bias.z += local->gyro.z;
+        HAL_DelayMs(10);
+    }
+    local->gyro_bias.x *= 0.005F; // /=200
+    local->gyro_bias.y *= 0.005F;
+    local->gyro_bias.z *= 0.005F;
+    //Получить значения средних отклонений
+    for (uint8_t i=0; i<200; i++)
+    {
+        mpu_readData(local);
+        local->eps.x += fabs(local->gyro.x - local->gyro_bias.x);
+        local->eps.y += fabs(local->gyro.y - local->gyro_bias.y);
+        local->eps.z += fabs(local->gyro.z - local->gyro_bias.z);
+        HAL_DelayMs(10);
+    }
+    local->eps.x *= 0.005F; // /=200
+    local->eps.y *= 0.005F;
+    local->eps.z *= 0.005F;
+    //Загрузка значений в фильтр Калмана
+    GKalman_setParameters(local->filter_gx, local->eps.x, local->eps.x, 0.5);
+    GKalman_setParameters(local->filter_gy, local->eps.y, local->eps.y, 0.5);
+    GKalman_setParameters(local->filter_gz, local->eps.z, local->eps.z, 0.5);
+}
+
+/* !
+ * @brief 
+ * 
+ *
+ */
+void mpu_GyroFilter(MPU_HandlerTypeDef* local)
+{
+    local->gyro_filtered.x = GKalman_Filtered(local->filter_gx, local->gyro.x);
+    local->gyro_filtered.y = GKalman_Filtered(local->filter_gy, local->gyro.y);
+    local->gyro_filtered.z = GKalman_Filtered(local->filter_gz, local->gyro.z);
 }
