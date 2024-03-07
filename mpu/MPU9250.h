@@ -3,8 +3,7 @@
 
 #include "mik32_hal_scr1_timer.h"
 #include "mik32_hal_spi.h"
-#include "SPI_Driver.c"
-
+#include "MPU9250_RegisterMap.c"
 
 //Mag options
 #define MAG_RESOLUTION_14b          0
@@ -55,10 +54,10 @@ typedef enum {
     ACCEL_SCALE_DEFAULT = 0
 } MPU9250_AccelScale;
 typedef enum {
-    GYRO_SCALE_2G = 0,
-    GYRO_SCALE_4G = 1,
-    GYRO_SCALE_8G = 2,
-    GYRO_SCALE_16G = 3,
+    GYRO_SCALE_250 = 0,
+    GYRO_SCALE_500 = 1,
+    GYRO_SCALE_1000 = 2,
+    GYRO_SCALE_2000 = 3,
     GYRO_SCALE_DEFAULT = 0
 } MPU9250_GyroScale;
 typedef enum {
@@ -70,17 +69,26 @@ typedef enum {
     ACCEL_BANDWIDTH_5p05Hz = 6,
     ACCEL_BANDWIDTH_420Hz = 7
 } MPU9250_AccelBandwidth;
+typedef enum {
+    GYRO_BANDWIDTH_3600Hz = 7,
+    GYRO_BANDWIDTH_250Hz = 0,
+    GYRO_BANDWIDTH_184Hz = 1,
+    GYRO_BANDWIDTH_92Hz = 2,
+    GYRO_BANDWIDTH_41Hz = 3,
+    GYRO_BANDWIDTH_20Hz = 4,
+    GYRO_BANDWIDTH_10Hz = 5,
+    GYRO_BANDWIDTH_5Hz = 6
+} MPU9250_GyroBandwidth;
 
+#include "SPI_Driver.c"
 
-MPU_HandleTypeDef mpu;
-
-
-bool mpu_begin(MPU_HandleTypeDef* local);
-void mpu_setAccelScale(MPU_HandleTypeDef* local, uint8_t choice);
+HAL_StatusTypeDef mpu_begin(MPU_HandleTypeDef* local);
+void mpu_setAccelScale(MPU_HandleTypeDef* local, MPU9250_AccelScale scale);
 void mpu_setGyroScale(MPU_HandleTypeDef* local, MPU9250_GyroScale scale);
 void mpu_setAccelBandwidth(MPU_HandleTypeDef* local, MPU9250_AccelBandwidth bw);
 void mpu_setGyroBandwidth(MPU_HandleTypeDef* local, MPU9250_GyroBandwidth bw);
 void mpu_readData(MPU_HandleTypeDef* local);
 
+#include "MPU9250.c"
 
 #endif
