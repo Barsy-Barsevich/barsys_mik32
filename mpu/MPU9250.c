@@ -1,9 +1,7 @@
 #include "MPU9250.h"
+//#include "SPI_Driver.h"
 
-
-
-
-bool mpu_begin(MPU_HandleTypeDef* local)
+HAL_StatusTypeDef mpu_begin(MPU_HandleTypeDef* local)
 {
     //Установка биасов
     local->accel_bias.x = 0;
@@ -19,10 +17,10 @@ bool mpu_begin(MPU_HandleTypeDef* local)
         (0<<MPU_CYCLE)|
         (0<<MPU_GYRO_STANDBY));
     // Тест на MPU9250
-    HAL_DelayMs(10);
+    //HAL_DelayMs(10);
     uint8_t data;
     SPI_readReg(local, MPU_WHO_I_AM, &data);
-    if ((data != MPU9250_ID_VALUE) && (data != MPU9255_ID_VALUE)) return false;
+    if ((data != MPU9250_ID_VALUE) && (data != MPU9255_ID_VALUE)) return HAL_ERROR;
     // Установка BANDWITH
     SPI_writeReg(local, MPU_CONFIG,
         (1<<MPU_DLPF_CFG2)|
@@ -44,7 +42,7 @@ bool mpu_begin(MPU_HandleTypeDef* local)
         (0<<MPU_DISABLE_YG)|
         (0<<MPU_DISABLE_ZG));
     //Магнитометр не нужон
-    return true;
+    return HAL_OK;
 }
 
     
@@ -115,10 +113,10 @@ void mpu_readData(MPU_HandleTypeDef* local)
     g_x = (((int16_t)raw[8]<<8)|(int16_t)raw[9]); //X
     g_y = (((int16_t)raw[10]<<8)|(int16_t)raw[11]); //Y
     g_z = (((int16_t)raw[12]<<8)|(int16_t)raw[13]); //Z
-    accel.x = (float)a_x * local->accel_scale + accel_bias.x;
-    accel.y = (float)a_y * local->accel_scale + accel_bias.y;
-    accel.z = (float)a_z * local->accel_scale + accel_bias.z;
-    gyro.x = (float)g_x * local->gyro_scale + gyro_bias.x;
-    gyro.y = (float)g_y * local->gyro_scale + gyro_bias.y;
-    gyro.z = (float)g_z * local->gyro_scale + gyro_bias.z;
+    local->accel.x = (float)a_x * local->accel_scale + local->accel_bias.x;
+    local->accel.y = (float)a_y * local->accel_scale + local->accel_bias.y;
+    local->accel.z = (float)a_z * local->accel_scale + local->accel_bias.z;
+    local->gyro.x = (float)g_x * local->gyro_scale + local->gyro_bias.x;
+    local->gyro.y = (float)g_y * local->gyro_scale + local->gyro_bias.y;
+    local->gyro.z = (float)g_z * local->gyro_scale + local->gyro_bias.z;
 }
