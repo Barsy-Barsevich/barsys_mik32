@@ -1,8 +1,15 @@
+#ifndef SERVO32_LIB
+#define SERVO32_LIB
+
+#include "mik32_hal_timer32.h"
+#include "mik32_hal_timer16.h"
+
+
 #define SERVO_TIMER_TOP_VALUE       40000UL
 
 void Servo_ini(HAL_ServoPinTypeDef pin);
 static HAL_StatusTypeDef timer32_ini(TIMER32_TypeDef* timer, uint8_t channel);
-static HAL_StatusTypeDef timer16_ini(Timer16_TypeDef* timer);
+static HAL_StatusTypeDef timer16_ini(TIMER16_TypeDef* timer);
 
 void Servo32_PrintAngle(HAL_ServoPinTypeDef pin);
 
@@ -118,10 +125,10 @@ static HAL_StatusTypeDef timer32_ini(TIMER32_TypeDef* timer, uint8_t channel)
 }
 
 
-static HAL_StatusTypeDef timer16_ini(Timer16_TypeDef* timer)
+static HAL_StatusTypeDef timer16_ini(TIMER16_TypeDef* timer)
 {
     /* Подготовка указателей на структуры таймера и канала */
-    TIMER32_HandleTypeDef* local_timer16;
+    Timer16_HandleTypeDef* local_timer16;
     if (timer == TIMER16_0)      local_timer16 = &servo_timer16_1;
     else if (timer == TIMER16_1) local_timer16 = &servo_timer16_2;
     else if (timer == TIMER16_2) local_timer16 = &servo_timer16_2;
@@ -143,7 +150,7 @@ static HAL_StatusTypeDef timer16_ini(Timer16_TypeDef* timer)
     local_timer16->Waveform.Polarity = TIMER16_WAVEFORM_POLARITY_NONINVERTED;
     HAL_Timer16_Init(local_timer16);
     /*  */
-    HAL_Timer16_StartPWM(local_timer16, SERVO_TIMER_TOP_VALUE, SERVO_1_5MS_CMP_VALUE);
+    HAL_Timer16_StartPWM(local_timer16, SERVO_TIMER_TOP_VALUE, 2000);
 }
 
 
@@ -156,13 +163,16 @@ void Servo32_PrintAngle(HAL_ServoPinTypeDef pin)
         case GPIO0_7:  HAL_Timer16_SetCMP(&servo_timer16_0, 2000+1000); break;
         case GPIO0_10: HAL_Timer16_SetCMP(&servo_timer16_1, 2000+1000); break;
         case GPIO0_13: HAL_Timer16_SetCMP(&servo_timer16_2, 2000+1000); break;
-        case GPIO0_0:  HAL_Timer32_Channel_OCR_Set(&servo_timer32_1_ch0, 2000+1000); break;
-        case GPIO0_1:  HAL_Timer32_Channel_OCR_Set(&servo_timer32_1_ch1, 2000+1000); break;
-        case GPIO0_2:  HAL_Timer32_Channel_OCR_Set(&servo_timer32_1_ch2, 2000+1000); break;
-        case GPIO0_3:  HAL_Timer32_Channel_OCR_Set(&servo_timer32_1_ch3, 2000+1000); break;
-        case GPIO1_0:  HAL_Timer32_Channel_OCR_Set(&servo_timer32_2_ch0, 2000+1000); break;
-        case GPIO1_1:  HAL_Timer32_Channel_OCR_Set(&servo_timer32_2_ch1, 2000+1000); break;
-        case GPIO1_2:  HAL_Timer32_Channel_OCR_Set(&servo_timer32_2_ch2, 2000+1000); break;
-        case GPIO1_3:  HAL_Timer32_Channel_OCR_Set(&servo_timer32_2_ch3, 2000+1000); break;
+        case GPIO0_0:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch0, 2000+1000); break;
+        case GPIO0_1:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch1, 2000+1000); break;
+        case GPIO0_2:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch2, 2000+1000); break;
+        case GPIO0_3:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch3, 2000+1000); break;
+        case GPIO1_0:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch0, 2000+1000); break;
+        case GPIO1_1:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch1, 2000+1000); break;
+        case GPIO1_2:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch2, 2000+1000); break;
+        case GPIO1_3:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch3, 2000+1000); break;
     }
 }
+
+
+#endif
