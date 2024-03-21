@@ -1,171 +1,168 @@
-#include "mik32_hal_timer32.h"
-#include "mik32_hal_scr1_timer.h"
+#define SERVO_TIMER_TOP_VALUE       40000UL
 
-#include "xprintf.h"
-#include "uart_lib.h"
-#include "stdlib.h"
+void Servo_ini(HAL_ServoPinTypeDef pin);
+static HAL_StatusTypeDef timer32_ini(TIMER32_TypeDef* timer, uint8_t channel);
+static HAL_StatusTypeDef timer16_ini(Timer16_TypeDef* timer);
 
-#include "MPU9250.h"
+void Servo32_PrintAngle(HAL_ServoPinTypeDef pin);
 
-MPU_HandleTypeDef mpu;
-SPI_HandleTypeDef mpu_spi0;
 
-TIMER32_HandleTypeDef htimer32_1;
-TIMER32_CHANNEL_HandleTypeDef htimer32_channel0;
-SCR1_TIMER_HandleTypeDef scr;
+TIMER32_HandleTypeDef servo_timer32_1;
+TIMER32_HandleTypeDef servo_timer32_2;
+TIMER32_CHANNEL_HandleTypeDef servo_tim32_1_ch0;
+TIMER32_CHANNEL_HandleTypeDef servo_tim32_1_ch1;
+TIMER32_CHANNEL_HandleTypeDef servo_tim32_1_ch2;
+TIMER32_CHANNEL_HandleTypeDef servo_tim32_1_ch3;
+TIMER32_CHANNEL_HandleTypeDef servo_tim32_2_ch0;
+TIMER32_CHANNEL_HandleTypeDef servo_tim32_2_ch1;
+TIMER32_CHANNEL_HandleTypeDef servo_tim32_2_ch2;
+TIMER32_CHANNEL_HandleTypeDef servo_tim32_2_ch3;
+Timer16_HandleTypeDef servo_timer16_0;
+Timer16_HandleTypeDef servo_timer16_1;
+Timer16_HandleTypeDef servo_timer16_2;
 
-void SystemClock_Config(void);
-static void Timer32_1_Init(void);
-void GPIO_Init();
-static void SPI0_Init(void);
-static void SCR1_TIMER_Init();
-void Servo32_PrintAngle(int16_t angle);
 
-#define Servo32_Period      100000UL
-#define Servo32_1ms_Time    16000UL
-#define Servo32_1_5ms_Time  48000UL
-#define Servo32_2ms_Time  80000UL
-#define SERVO32_180DEG_VALUE  64000
 
-/*
- * В данном примере демонстрируется работа таймера32.
- * Нулевой канал таймера используется в режиме ШИМ. На Port0_0 генерирует периодичный сигнал (ШИМ)
- * с заполнением 50 %, частота которого задается верхним пределом таймера. Таймер считает от частоты
- * системной шины, поэтому для установки частоты нужно передать по UART0 значение: 
- * top = (частота основного генератора) / (задаваемая частота)
- */
 
-int main()
+typedef enum __HAL_ServoPinTypeDef
 {
-    SystemClock_Config();
-    SCR1_TIMER_Init();
-    GPIO_Init();
-    UART_Init(UART_0, 3333, UART_CONTROL1_TE_M | UART_CONTROL1_M_8BIT_M | UART_CONTROL1_RE_M, 0, 0);
-    Timer32_1_Init();
-    xprintf("UART init\n");
-    HAL_Timer32_Channel_Enable(&htimer32_channel0);
-    HAL_Timer32_Value_Clear(&htimer32_1);
-    HAL_Timer32_Start(&htimer32_1);
-    int top = 100000;//640000;
-    HAL_Timer32_Top_Set(&htimer32_1, top);
-    HAL_Timer32_Value_Clear(&htimer32_1);//*/
+    GPIO0_7,    //tim16_0
+    GPIO0_10,   //tim16_1
+    GPIO0_13,   //tim16_2
+    GPIO0_0,    //tim32_1, ch1
+    GPIO0_1,    //tim32_1, ch2
+    GPIO0_2,    //tim32_1, ch3
+    GPIO0_3,    //tim32_1, ch4
+    GPIO1_0,    //tim32_2, ch1
+    GPIO1_1,    //tim32_2, ch2
+    GPIO1_2,    //tim32_2, ch3
+    GPIO1_3     //tim32_2, ch4
+} HAL_ServoPinTypeDef;
 
-    /*Servo32_PrintAngle(70);
-    while(1);*/
-    while (1)
+
+//void anm(GPIO_TypeDef *GPIO_x, HAL_PinsTypeDef pin)
+
+void Servo_ini(HAL_ServoPinTypeDef pin)
+{
+    switch (pin)
     {
-        for (int8_t i=-90; i<90; i++)
-        {
-            Servo32_PrintAngle(i);
-            HAL_DelayMs(&scr, 20);
-        }
-        for (int8_t i=90; i>-90; i--)
-        {
-            Servo32_PrintAngle(i);
-            HAL_DelayMs(&scr, 20);
-        }
-    }
-
-    // SPI0_Init();
-    // SPI_init(&mpu, &mpu_spi0, SPI_CS_0);
-    // mpu_begin(&mpu);
-    // uint8_t data;
-    // while (1) SPI_readReg(&mpu, MPU_WHO_I_AM, &data);
-    // mpu_setAccelScale(&mpu, ACCEL_SCALE_16G);
-    // mpu_setGyroScale(&mpu, GYRO_SCALE_2000);
-    // mpu_setAccelBandwidth(&mpu, ACCEL_BANDWIDTH_420Hz);
-    // mpu_setGyroBandwidth(&mpu, GYRO_BANDWIDTH_3600Hz);
-    // while (1) mpu_readData(&mpu);
-}
-
-
-
-
-void Servo32_PrintAngle(int16_t angle)
-{
-    angle += 90;
-    if (angle <= 0) angle = 1;
-    if (angle >= 180) angle = 179;
-    HAL_Timer32_Channel_OCR_Set(&htimer32_channel0, SERVO32_180DEG_VALUE/180*angle+16000);
-}
-
-
-
-void SystemClock_Config(void)
-{
-    PCC_InitTypeDef PCC_OscInit = {0};
-
-    PCC_OscInit.OscillatorEnable = PCC_OSCILLATORTYPE_ALL;
-    PCC_OscInit.FreqMon.OscillatorSystem = PCC_OSCILLATORTYPE_OSC32M;
-    PCC_OscInit.FreqMon.ForceOscSys = PCC_FORCE_OSC_SYS_UNFIXED;
-    PCC_OscInit.FreqMon.Force32KClk = PCC_FREQ_MONITOR_SOURCE_OSC32K;
-    PCC_OscInit.AHBDivider = 0;
-    PCC_OscInit.APBMDivider = 0;
-    PCC_OscInit.APBPDivider = 0;
-    PCC_OscInit.HSI32MCalibrationValue = 128;
-    PCC_OscInit.LSI32KCalibrationValue = 128;
-    PCC_OscInit.RTCClockSelection = PCC_RTC_CLOCK_SOURCE_AUTO;
-    PCC_OscInit.RTCClockCPUSelection = PCC_CPU_RTC_CLOCK_SOURCE_OSC32K;
-    HAL_PCC_Config(&PCC_OscInit);
-}
-
-
-static void Timer32_1_Init(void)
-{
-    htimer32_1.Instance = TIMER32_1;
-    htimer32_1.Top = 7543;
-    htimer32_1.State = TIMER32_STATE_DISABLE;
-    htimer32_1.Clock.Source = TIMER32_SOURCE_PRESCALER;
-    htimer32_1.Clock.Prescaler = 0;
-    htimer32_1.InterruptMask = 0;
-    htimer32_1.CountMode = TIMER32_COUNTMODE_FORWARD;
-    HAL_Timer32_Init(&htimer32_1);
-
-    htimer32_channel0.TimerInstance = htimer32_1.Instance;
-    htimer32_channel0.ChannelIndex = TIMER32_CHANNEL_0;
-    htimer32_channel0.PWM_Invert = TIMER32_CHANNEL_NON_INVERTED_PWM;
-    htimer32_channel0.Mode = TIMER32_CHANNEL_MODE_PWM;
-    htimer32_channel0.CaptureEdge = TIMER32_CHANNEL_CAPTUREEDGE_RISING;
-    htimer32_channel0.OCR = 7544 >> 1;
-    htimer32_channel0.Noise = TIMER32_CHANNEL_FILTER_OFF;
-    HAL_Timer32_Channel_Init(&htimer32_channel0);
-}
-
-void GPIO_Init()
-{
-    __HAL_PCC_GPIO_0_CLK_ENABLE();
-    __HAL_PCC_GPIO_1_CLK_ENABLE();
-    __HAL_PCC_GPIO_2_CLK_ENABLE();
-}
-
-static void SPI0_Init(void)
-{
-    mpu_spi0.Instance = SPI_0;
-
-    /* Режим SPI */
-    mpu_spi0.Init.SPI_Mode = HAL_SPI_MODE_MASTER;
-
-    /* Настройки */
-    mpu_spi0.Init.CLKPhase = SPI_PHASE_ON;
-    mpu_spi0.Init.CLKPolarity = SPI_POLARITY_HIGH;
-    mpu_spi0.Init.ThresholdTX = 4;
-
-    /* Настройки для ведущего */
-    mpu_spi0.Init.BaudRateDiv = SPI_BAUDRATE_DIV256;
-    mpu_spi0.Init.Decoder = SPI_DECODER_NONE;
-    mpu_spi0.Init.ManualCS = SPI_MANUALCS_OFF;
-    mpu_spi0.Init.ChipSelect = SPI_CS_0;      
-
-    if (HAL_SPI_Init(&mpu_spi0) != HAL_OK)
-    {
-        xprintf("SPI_Init_Error\n");
+        case GPIO0_7:  timer16_ini(TIMER16_0); break;
+        case GPIO0_10: timer16_ini(TIMER16_1); break;
+        case GPIO0_13: timer16_ini(TIMER16_2); break;
+        case GPIO0_0:  timer32_ini(TIMER32_1,0); break;
+        case GPIO0_1:  timer32_ini(TIMER32_1,1); break;
+        case GPIO0_2:  timer32_ini(TIMER32_1,2); break;
+        case GPIO0_3:  timer32_ini(TIMER32_1,3); break;
+        case GPIO1_0:  timer32_ini(TIMER32_2,0); break;
+        case GPIO1_1:  timer32_ini(TIMER32_2,1); break;
+        case GPIO1_2:  timer32_ini(TIMER32_2,2); break;
+        case GPIO1_3:  timer32_ini(TIMER32_2,3); break;
     }
 }
 
-static void SCR1_TIMER_Init()
+static HAL_StatusTypeDef timer32_ini(TIMER32_TypeDef* timer, uint8_t channel)
 {
-    scr.Instance = SCR1_TIMER;
-    scr.ClockSource = SCR1_TIMER_CLKSRC_INTERNAL;
-    scr.Divider = 0;
-    HAL_SCR1_Timer_Init(&scr);
+    /* Подготовка указателей на структуры таймера и канала */
+    TIMER32_HandleTypeDef* local_timer32;
+    TIMER32_CHANNEL_HandleTypeDef* local_channel;
+    if (timer == TIMER32_1)
+    {
+        local_timer32 = &servo_timer32_1;
+        switch (channel)
+        {
+            case 0: local_channel = &servo_tim32_1_ch0; break;
+            case 1: local_channel = &servo_tim32_1_ch1; break;
+            case 2: local_channel = &servo_tim32_1_ch2; break;
+            case 3: local_channel = &servo_tim32_1_ch3; break;
+            default: return HAL_ERROR;
+        }
+    }
+    else if (timer == TIMER32_2)
+    {
+        local_timer32 = &servo_timer32_2;
+        switch (channel)
+        {
+            case 0: local_channel = &servo_tim32_2_ch0; break;
+            case 1: local_channel = &servo_tim32_2_ch1; break;
+            case 2: local_channel = &servo_tim32_2_ch2; break;
+            case 3: local_channel = &servo_tim32_2_ch3; break;
+            default: return HAL_ERROR;
+        }
+    }
+    else return HAL_ERROR;
+    /* Инициализация таймера */
+    local_timer32->Instance = timer;
+    local_timer32->Top = SERVO_TIMER_TOP_VALUE;
+    local_timer32->State = TIMER32_STATE_DISABLE;
+    local_timer32->Clock.Source = TIMER32_SOURCE_PRESCALER;
+    local_timer32->Clock.Prescaler = 16-1;
+    local_timer32->InterruptMask = 0;
+    local_timer32->CountMode = TIMER32_COUNTMODE_FORWARD;
+    HAL_Timer32_Init(local_timer32);
+    /* Установка параметров канала */
+    local_channel->TimerInstance = local_timer32->Instance;
+    switch (channel)
+    {
+        case 0: local_channel->ChannelIndex = TIMER32_CHANNEL_0; break;
+        case 1: local_channel->ChannelIndex = TIMER32_CHANNEL_1; break;
+        case 2: local_channel->ChannelIndex = TIMER32_CHANNEL_2; break;
+        case 3: local_channel->ChannelIndex = TIMER32_CHANNEL_3; break;
+        default: return HAL_ERROR;
+    }
+    local_channel->PWM_Invert = TIMER32_CHANNEL_NON_INVERTED_PWM;
+    local_channel->Mode = TIMER32_CHANNEL_MODE_PWM;
+    local_channel->CaptureEdge = TIMER32_CHANNEL_CAPTUREEDGE_RISING;
+    local_channel->OCR = 7544 >> 1;
+    local_channel->Noise = TIMER32_CHANNEL_FILTER_OFF;
+    HAL_Timer32_Channel_Init(local_channel);
+}
+
+
+static HAL_StatusTypeDef timer16_ini(Timer16_TypeDef* timer)
+{
+    /* Подготовка указателей на структуры таймера и канала */
+    TIMER32_HandleTypeDef* local_timer16;
+    if (timer == TIMER16_0)      local_timer16 = &servo_timer16_1;
+    else if (timer == TIMER16_1) local_timer16 = &servo_timer16_2;
+    else if (timer == TIMER16_2) local_timer16 = &servo_timer16_2;
+    else return HAL_ERROR;
+    /*  */
+    local_timer16->Instance = timer;
+    local_timer16->Clock.Source = TIMER16_SOURCE_INTERNAL_SYSTEM;
+    local_timer16->CountMode = TIMER16_COUNTMODE_INTERNAL;  /* При тактировании от Input1 не имеет значения */
+    local_timer16->Clock.Prescaler = TIMER16_PRESCALER_16;
+    local_timer16->ActiveEdge = TIMER16_ACTIVEEDGE_RISING;  /* Выбирается при тактировании от Input1 */
+    local_timer16->Preload = TIMER16_PRELOAD_AFTERWRITE;
+    local_timer16->Trigger.Source = TIMER16_TRIGGER_TIM1_GPIO1_9; 
+    local_timer16->Trigger.ActiveEdge = TIMER16_TRIGGER_ACTIVEEDGE_SOFTWARE;    /* При использовании триггера значение должно быть отлично от software */
+    local_timer16->Trigger.TimeOut = TIMER16_TIMEOUT_DISABLE;   /* Разрешить повторное срабатывание триггера */
+    local_timer16->Filter.ExternalClock = TIMER16_FILTER_NONE;
+    local_timer16->Filter.Trigger = TIMER16_FILTER_NONE;
+    local_timer16->EncoderMode = TIMER16_ENCODER_DISABLE;
+    local_timer16->Waveform.Enable = TIMER16_WAVEFORM_GENERATION_ENABLE;
+    local_timer16->Waveform.Polarity = TIMER16_WAVEFORM_POLARITY_NONINVERTED;
+    HAL_Timer16_Init(local_timer16);
+    /*  */
+    HAL_Timer16_StartPWM(local_timer16, SERVO_TIMER_TOP_VALUE, SERVO_1_5MS_CMP_VALUE);
+}
+
+
+
+
+void Servo32_PrintAngle(HAL_ServoPinTypeDef pin)
+{
+    switch (pin)
+    {
+        case GPIO0_7:  HAL_Timer16_SetCMP(&servo_timer16_0, 2000+1000); break;
+        case GPIO0_10: HAL_Timer16_SetCMP(&servo_timer16_1, 2000+1000); break;
+        case GPIO0_13: HAL_Timer16_SetCMP(&servo_timer16_2, 2000+1000); break;
+        case GPIO0_0:  HAL_Timer32_Channel_OCR_Set(&servo_timer32_1_ch0, 2000+1000); break;
+        case GPIO0_1:  HAL_Timer32_Channel_OCR_Set(&servo_timer32_1_ch1, 2000+1000); break;
+        case GPIO0_2:  HAL_Timer32_Channel_OCR_Set(&servo_timer32_1_ch2, 2000+1000); break;
+        case GPIO0_3:  HAL_Timer32_Channel_OCR_Set(&servo_timer32_1_ch3, 2000+1000); break;
+        case GPIO1_0:  HAL_Timer32_Channel_OCR_Set(&servo_timer32_2_ch0, 2000+1000); break;
+        case GPIO1_1:  HAL_Timer32_Channel_OCR_Set(&servo_timer32_2_ch1, 2000+1000); break;
+        case GPIO1_2:  HAL_Timer32_Channel_OCR_Set(&servo_timer32_2_ch2, 2000+1000); break;
+        case GPIO1_3:  HAL_Timer32_Channel_OCR_Set(&servo_timer32_2_ch3, 2000+1000); break;
+    }
 }
