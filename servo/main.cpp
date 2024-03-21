@@ -1,17 +1,35 @@
+
 #ifndef SERVO32_LIB
 #define SERVO32_LIB
 
 #include "mik32_hal_timer32.h"
 #include "mik32_hal_timer16.h"
 
+/* Выбор частоты ШИМ-сигнала серво */
+#define SERVO_50Hz
+//#define SERVO_330Hz
 
-#define SERVO_TIMER_TOP_VALUE       40000UL
-
-void Servo_ini(HAL_ServoPinTypeDef pin);
-static HAL_StatusTypeDef timer32_ini(TIMER32_TypeDef* timer, uint8_t channel);
-static HAL_StatusTypeDef timer16_ini(TIMER16_TypeDef* timer);
-
-void Servo32_PrintAngle(HAL_ServoPinTypeDef pin);
+/* Servo 50Hz setting */
+/* 50Гц - это стандартная частота серво. Ее использование предпочтительнее */
+#ifdef SERVO_50Hz
+#define SERVO_TIMER_PRESCALER       16
+#define SERVO_TIMER_TOP_VALUE       40000UI
+#define SERVO_0DEG_VALUE            1000UI
+#define SERVO_90DEG_VALUE           3000UI
+#define SERVO_180DEG_VALUE          5000UI
+#define SERVO_ANGLE_TO_VALUE_COEF   (SERVO_180DEG_VALUE-SERVO_0DEG_VALUE)/180
+#else
+/* Servo 330Hz setting */
+/* Некоторые серво могут работать на частоте 330Гц. Эту настройку можно использовать, если необходим максимально быстрый отклик сервопривода на внешнее воздействие */
+#ifdef SERVO_330Hz
+#define SERVO_TIMER_PRESCALER       2
+#define SERVO_TIMER_TOP_VALUE       48000UI
+#define SERVO_0DEG_VALUE            8000UI
+#define SERVO_90DEG_VALUE           24000UI
+#define SERVO_180DEG_VALUE          40000UI
+#define SERVO_ANGLE_TO_VALUE_COEF   (SERVO_180DEG_VALUE-SERVO_0DEG_VALUE)/180
+#endif
+#endif
 
 
 TIMER32_HandleTypeDef servo_timer32_1;
@@ -29,21 +47,25 @@ Timer16_HandleTypeDef servo_timer16_1;
 Timer16_HandleTypeDef servo_timer16_2;
 
 
+void Servo_ini(HAL_ServoPinTypeDef pin);
+static HAL_StatusTypeDef timer32_ini(TIMER32_TypeDef* timer, uint8_t channel);
+static HAL_StatusTypeDef timer16_ini(TIMER16_TypeDef* timer);
+void Servo32_PrintAngle(HAL_ServoPinTypeDef pin, uint8_t angle)
 
 
 typedef enum __HAL_ServoPinTypeDef
 {
-    GPIO0_7,    //tim16_0
-    GPIO0_10,   //tim16_1
-    GPIO0_13,   //tim16_2
-    GPIO0_0,    //tim32_1, ch1
-    GPIO0_1,    //tim32_1, ch2
-    GPIO0_2,    //tim32_1, ch3
-    GPIO0_3,    //tim32_1, ch4
-    GPIO1_0,    //tim32_2, ch1
-    GPIO1_1,    //tim32_2, ch2
-    GPIO1_2,    //tim32_2, ch3
-    GPIO1_3     //tim32_2, ch4
+    GPIO0_7 = 0,    //tim16_0
+    GPIO0_10 = 1,   //tim16_1
+    GPIO0_13 = 2,   //tim16_2
+    GPIO0_0 = 3,    //tim32_1, ch1
+    GPIO0_1 = 4,    //tim32_1, ch2
+    GPIO0_2 = 5,    //tim32_1, ch3
+    GPIO0_3 = 6,    //tim32_1, ch4
+    GPIO1_0 = 7,    //tim32_2, ch1
+    GPIO1_1 = 8,    //tim32_2, ch2
+    GPIO1_2 = 9,    //tim32_2, ch3
+    GPIO1_3 = 10   //tim32_2, ch4
 } HAL_ServoPinTypeDef;
 
 
@@ -102,7 +124,7 @@ static HAL_StatusTypeDef timer32_ini(TIMER32_TypeDef* timer, uint8_t channel)
     local_timer32->Top = SERVO_TIMER_TOP_VALUE;
     local_timer32->State = TIMER32_STATE_DISABLE;
     local_timer32->Clock.Source = TIMER32_SOURCE_PRESCALER;
-    local_timer32->Clock.Prescaler = 16-1;
+    local_timer32->Clock.Prescaler = SERVO_TIMER_PRESCALER-1;
     local_timer32->InterruptMask = 0;
     local_timer32->CountMode = TIMER32_COUNTMODE_FORWARD;
     HAL_Timer32_Init(local_timer32);
@@ -119,7 +141,7 @@ static HAL_StatusTypeDef timer32_ini(TIMER32_TypeDef* timer, uint8_t channel)
     local_channel->PWM_Invert = TIMER32_CHANNEL_NON_INVERTED_PWM;
     local_channel->Mode = TIMER32_CHANNEL_MODE_PWM;
     local_channel->CaptureEdge = TIMER32_CHANNEL_CAPTUREEDGE_RISING;
-    local_channel->OCR = 7544 >> 1;
+    local_channel->OCR = SERVO_90DEG_VALUE;
     local_channel->Noise = TIMER32_CHANNEL_FILTER_OFF;
     HAL_Timer32_Channel_Init(local_channel);
 }
@@ -150,27 +172,29 @@ static HAL_StatusTypeDef timer16_ini(TIMER16_TypeDef* timer)
     local_timer16->Waveform.Polarity = TIMER16_WAVEFORM_POLARITY_NONINVERTED;
     HAL_Timer16_Init(local_timer16);
     /*  */
-    HAL_Timer16_StartPWM(local_timer16, SERVO_TIMER_TOP_VALUE, 2000);
+    HAL_Timer16_StartPWM(local_timer16, SERVO_TIMER_TOP_VALUE, SERVO_90DEG_VALUE);
 }
 
 
 
 
-void Servo32_PrintAngle(HAL_ServoPinTypeDef pin)
+void Servo32_PrintAngle(HAL_ServoPinTypeDef pin, uint8_t angle)
 {
+    if (angle > 180) angle = 180;
+    uint16_t ocr = SERVO_0DEG_VALUE+(SERVO_ANGLE_TO_VALUE_COEF*angle);
     switch (pin)
     {
-        case GPIO0_7:  HAL_Timer16_SetCMP(&servo_timer16_0, 2000+1000); break;
-        case GPIO0_10: HAL_Timer16_SetCMP(&servo_timer16_1, 2000+1000); break;
-        case GPIO0_13: HAL_Timer16_SetCMP(&servo_timer16_2, 2000+1000); break;
-        case GPIO0_0:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch0, 2000+1000); break;
-        case GPIO0_1:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch1, 2000+1000); break;
-        case GPIO0_2:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch2, 2000+1000); break;
-        case GPIO0_3:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch3, 2000+1000); break;
-        case GPIO1_0:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch0, 2000+1000); break;
-        case GPIO1_1:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch1, 2000+1000); break;
-        case GPIO1_2:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch2, 2000+1000); break;
-        case GPIO1_3:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch3, 2000+1000); break;
+        case GPIO0_7:  HAL_Timer16_SetCMP(&servo_timer16_0, ocr); break;
+        case GPIO0_10: HAL_Timer16_SetCMP(&servo_timer16_1, ocr); break;
+        case GPIO0_13: HAL_Timer16_SetCMP(&servo_timer16_2, ocr); break;
+        case GPIO0_0:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch0, ocr); break;
+        case GPIO0_1:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch1, ocr); break;
+        case GPIO0_2:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch2, ocr); break;
+        case GPIO0_3:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch3, ocr); break;
+        case GPIO1_0:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch0, ocr); break;
+        case GPIO1_1:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch1, ocr); break;
+        case GPIO1_2:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch2, ocr); break;
+        case GPIO1_3:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch3, ocr); break;
     }
 }
 
