@@ -1,4 +1,5 @@
 
+
 #ifndef SERVO32_LIB
 #define SERVO32_LIB
 
@@ -13,23 +14,38 @@
 /* 50Гц - это стандартная частота серво. Ее использование предпочтительнее */
 #ifdef SERVO_50Hz
 #define SERVO_TIMER_PRESCALER       16
-#define SERVO_TIMER_TOP_VALUE       40000UI
-#define SERVO_0DEG_VALUE            1000UI
-#define SERVO_90DEG_VALUE           3000UI
-#define SERVO_180DEG_VALUE          5000UI
+#define SERVO_TIMER_TOP_VALUE       40000
+#define SERVO_0DEG_VALUE            1000
+#define SERVO_90DEG_VALUE           3000
+#define SERVO_180DEG_VALUE          5000
 #define SERVO_ANGLE_TO_VALUE_COEF   (SERVO_180DEG_VALUE-SERVO_0DEG_VALUE)/180
 #else
 /* Servo 330Hz setting */
 /* Некоторые серво могут работать на частоте 330Гц. Эту настройку можно использовать, если необходим максимально быстрый отклик сервопривода на внешнее воздействие */
 #ifdef SERVO_330Hz
 #define SERVO_TIMER_PRESCALER       2
-#define SERVO_TIMER_TOP_VALUE       48000UI
-#define SERVO_0DEG_VALUE            8000UI
-#define SERVO_90DEG_VALUE           24000UI
-#define SERVO_180DEG_VALUE          40000UI
+#define SERVO_TIMER_TOP_VALUE       48000
+#define SERVO_0DEG_VALUE            8000
+#define SERVO_90DEG_VALUE           24000
+#define SERVO_180DEG_VALUE          40000
 #define SERVO_ANGLE_TO_VALUE_COEF   (SERVO_180DEG_VALUE-SERVO_0DEG_VALUE)/180
 #endif
 #endif
+
+typedef enum __HAL_ServoPinTypeDef
+{
+    ServoGPIO0_7 = 0,    //tim16_0
+    ServoGPIO0_10 = 1,   //tim16_1
+    ServoGPIO0_13 = 2,   //tim16_2
+    ServoGPIO0_0 = 3,    //tim32_1, ch1
+    ServoGPIO0_1 = 4,    //tim32_1, ch2
+    ServoGPIO0_2 = 5,    //tim32_1, ch3
+    ServoGPIO0_3 = 6,    //tim32_1, ch4
+    ServoGPIO1_0 = 7,    //tim32_2, ch1
+    ServoGPIO1_1 = 8,    //tim32_2, ch2
+    ServoGPIO1_2 = 9,    //tim32_2, ch3
+    ServoGPIO1_3 = 10   //tim32_2, ch4
+} HAL_ServoPinTypeDef;
 
 
 TIMER32_HandleTypeDef servo_timer32_1;
@@ -50,23 +66,7 @@ Timer16_HandleTypeDef servo_timer16_2;
 void Servo_ini(HAL_ServoPinTypeDef pin);
 static HAL_StatusTypeDef timer32_ini(TIMER32_TypeDef* timer, uint8_t channel);
 static HAL_StatusTypeDef timer16_ini(TIMER16_TypeDef* timer);
-void Servo32_PrintAngle(HAL_ServoPinTypeDef pin, uint8_t angle)
-
-
-typedef enum __HAL_ServoPinTypeDef
-{
-    GPIO0_7 = 0,    //tim16_0
-    GPIO0_10 = 1,   //tim16_1
-    GPIO0_13 = 2,   //tim16_2
-    GPIO0_0 = 3,    //tim32_1, ch1
-    GPIO0_1 = 4,    //tim32_1, ch2
-    GPIO0_2 = 5,    //tim32_1, ch3
-    GPIO0_3 = 6,    //tim32_1, ch4
-    GPIO1_0 = 7,    //tim32_2, ch1
-    GPIO1_1 = 8,    //tim32_2, ch2
-    GPIO1_2 = 9,    //tim32_2, ch3
-    GPIO1_3 = 10   //tim32_2, ch4
-} HAL_ServoPinTypeDef;
+void Servo32_PrintAngle(HAL_ServoPinTypeDef pin, uint8_t angle);
 
 
 //void anm(GPIO_TypeDef *GPIO_x, HAL_PinsTypeDef pin)
@@ -75,17 +75,17 @@ void Servo_ini(HAL_ServoPinTypeDef pin)
 {
     switch (pin)
     {
-        case GPIO0_7:  timer16_ini(TIMER16_0); break;
-        case GPIO0_10: timer16_ini(TIMER16_1); break;
-        case GPIO0_13: timer16_ini(TIMER16_2); break;
-        case GPIO0_0:  timer32_ini(TIMER32_1,0); break;
-        case GPIO0_1:  timer32_ini(TIMER32_1,1); break;
-        case GPIO0_2:  timer32_ini(TIMER32_1,2); break;
-        case GPIO0_3:  timer32_ini(TIMER32_1,3); break;
-        case GPIO1_0:  timer32_ini(TIMER32_2,0); break;
-        case GPIO1_1:  timer32_ini(TIMER32_2,1); break;
-        case GPIO1_2:  timer32_ini(TIMER32_2,2); break;
-        case GPIO1_3:  timer32_ini(TIMER32_2,3); break;
+        case ServoGPIO0_7:  timer16_ini(TIMER16_0); break;
+        case ServoGPIO0_10: timer16_ini(TIMER16_1); break;
+        case ServoGPIO0_13: timer16_ini(TIMER16_2); break;
+        case ServoGPIO0_0:  timer32_ini(TIMER32_1,0); break;
+        case ServoGPIO0_1:  timer32_ini(TIMER32_1,1); break;
+        case ServoGPIO0_2:  timer32_ini(TIMER32_1,2); break;
+        case ServoGPIO0_3:  timer32_ini(TIMER32_1,3); break;
+        case ServoGPIO1_0:  timer32_ini(TIMER32_2,0); break;
+        case ServoGPIO1_1:  timer32_ini(TIMER32_2,1); break;
+        case ServoGPIO1_2:  timer32_ini(TIMER32_2,2); break;
+        case ServoGPIO1_3:  timer32_ini(TIMER32_2,3); break;
     }
 }
 
@@ -144,6 +144,7 @@ static HAL_StatusTypeDef timer32_ini(TIMER32_TypeDef* timer, uint8_t channel)
     local_channel->OCR = SERVO_90DEG_VALUE;
     local_channel->Noise = TIMER32_CHANNEL_FILTER_OFF;
     HAL_Timer32_Channel_Init(local_channel);
+    return HAL_OK;
 }
 
 
@@ -173,6 +174,7 @@ static HAL_StatusTypeDef timer16_ini(TIMER16_TypeDef* timer)
     HAL_Timer16_Init(local_timer16);
     /*  */
     HAL_Timer16_StartPWM(local_timer16, SERVO_TIMER_TOP_VALUE, SERVO_90DEG_VALUE);
+    return HAL_OK;
 }
 
 
@@ -184,17 +186,17 @@ void Servo32_PrintAngle(HAL_ServoPinTypeDef pin, uint8_t angle)
     uint16_t ocr = SERVO_0DEG_VALUE+(SERVO_ANGLE_TO_VALUE_COEF*angle);
     switch (pin)
     {
-        case GPIO0_7:  HAL_Timer16_SetCMP(&servo_timer16_0, ocr); break;
-        case GPIO0_10: HAL_Timer16_SetCMP(&servo_timer16_1, ocr); break;
-        case GPIO0_13: HAL_Timer16_SetCMP(&servo_timer16_2, ocr); break;
-        case GPIO0_0:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch0, ocr); break;
-        case GPIO0_1:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch1, ocr); break;
-        case GPIO0_2:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch2, ocr); break;
-        case GPIO0_3:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch3, ocr); break;
-        case GPIO1_0:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch0, ocr); break;
-        case GPIO1_1:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch1, ocr); break;
-        case GPIO1_2:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch2, ocr); break;
-        case GPIO1_3:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch3, ocr); break;
+        case ServoGPIO0_7:  HAL_Timer16_SetCMP(&servo_timer16_0, ocr); break;
+        case ServoGPIO0_10: HAL_Timer16_SetCMP(&servo_timer16_1, ocr); break;
+        case ServoGPIO0_13: HAL_Timer16_SetCMP(&servo_timer16_2, ocr); break;
+        case ServoGPIO0_0:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch0, ocr); break;
+        case ServoGPIO0_1:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch1, ocr); break;
+        case ServoGPIO0_2:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch2, ocr); break;
+        case ServoGPIO0_3:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_1_ch3, ocr); break;
+        case ServoGPIO1_0:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch0, ocr); break;
+        case ServoGPIO1_1:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch1, ocr); break;
+        case ServoGPIO1_2:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch2, ocr); break;
+        case ServoGPIO1_3:  HAL_Timer32_Channel_OCR_Set(&servo_tim32_2_ch3, ocr); break;
     }
 }
 
