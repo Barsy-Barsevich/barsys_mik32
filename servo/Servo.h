@@ -1,42 +1,9 @@
-
 #ifndef SERVO32_LIB
 #define SERVO32_LIB
 
 #include "mik32_hal_timer32.h"
 #include "mik32_hal_timer16.h"
 
-/* Выбор частоты ШИМ-сигнала серво */
-#define SERVO_50HZ
-//#define SERVO_330HZ
-
-/* Servo 50Hz setting */
-/* 50Гц - это стандартная частота серво. Ее использование предпочтительнее */
-#ifdef SERVO_50HZ
-#define SERVO_TIMER_PRESCALER       16
-#define SERVO_TIMER16_PRESCALER     TIMER16_PRESCALER_16
-#define SERVO_TIMER_TOP_VALUE       40000
-#define SERVO_0DEG_VALUE            1000
-#define SERVO_90DEG_VALUE           3000
-#define SERVO_180DEG_VALUE          5000
-#define SERVO_ANGLE_TO_VALUE_COEF   (SERVO_180DEG_VALUE-SERVO_0DEG_VALUE)/180
-
-//#define SERVO_0DEG_VALUE            TIMER_FREQ/50/40
-//#define SERVO_90DEG_VALUE           TIMER_FREQ/50/40*3
-//#define SERVO_180DEG_VALUE          TIMER_FREQ/50/40*5
-
-#else
-/* Servo 330Hz setting */
-/* Некоторые серво могут работать на частоте 330Гц. Эту настройку можно использовать, если необходим максимально быстрый отклик сервопривода на внешнее воздействие */
-#ifdef SERVO_330HZ
-#define SERVO_TIMER_PRESCALER       2
-#define SERVO_TIMER16_PRESCALER     TIMER16_PRESCALER_2
-#define SERVO_TIMER_TOP_VALUE       48000
-#define SERVO_0DEG_VALUE            8000
-#define SERVO_90DEG_VALUE           24000
-#define SERVO_180DEG_VALUE          40000
-#define SERVO_ANGLE_TO_VALUE_COEF   (SERVO_180DEG_VALUE-SERVO_0DEG_VALUE)/180
-#endif
-#endif
 
 typedef enum __ServoFrequency_TypeDef
 {
@@ -44,7 +11,7 @@ typedef enum __ServoFrequency_TypeDef
     ServoFreq_330Hz = 1
 } ServoFrequency_TypeDef;
 
-typedef enum __HAL_ServoPinTypeDef
+typedef enum __ServoPinTypeDef
 {
     ServoPin_0_7 = 0,    //Соответствует каналу tim16_0
     ServoPin_0_10 = 1,   //Соответствует каналу tim16_1
@@ -57,7 +24,8 @@ typedef enum __HAL_ServoPinTypeDef
     ServoPin_1_1 = 8,    //Соответствует каналу tim32_2, ch2
     ServoPin_1_2 = 9,    //Соответствует каналу tim32_2, ch3
     ServoPin_1_3 = 10    //Соответствует каналу tim32_2, ch4
-} HAL_ServoPinTypeDef;
+} ServoPinTypeDef;
+
 
 typedef struct __ServoTimerSetting_TypeDef
 {
@@ -65,11 +33,18 @@ typedef struct __ServoTimerSetting_TypeDef
     uint32_t timer_freq;
     uint32_t _0deg_value;
     uint32_t _180deg_value;
-    uint32_t angle_to_value_coef;
+    uint32_t angle_to_ocr_coef;
 } ServoTimerSetting_TypeDef;
+
 
 struct __ServoGlobalSetting
 {
+    /* Timer settings */
+    ServoTimerSetting_TypeDef tim16_0_setting;
+    ServoTimerSetting_TypeDef tim16_1_setting;
+    ServoTimerSetting_TypeDef tim16_2_setting;
+    ServoTimerSetting_TypeDef tim32_1_setting;
+    ServoTimerSetting_TypeDef tim32_2_setting;
     
 } ServoGlobalSetting;
 
