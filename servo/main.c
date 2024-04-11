@@ -7,6 +7,12 @@
 
 #include "Servo32.h"
 
+#define LED1_PORT   GPIO_2
+#define LED1_PIN    GPIO_PIN_2
+#define LED2_PORT   GPIO_2
+#define LED2_PIN    GPIO_PIN_1
+
+
 
 SCR1_TIMER_HandleTypeDef scr;
 Timer16_HandleTypeDef htimer16_1;
@@ -45,13 +51,70 @@ int main()
         HAL_DelayMs(&scr, 1000);
     }*/
 
-    Servo_ini(ServoGPIO0_10);
+    Servo_ini(ServoPin_0_0);
+    Servo_ini(ServoPin_0_1);
+    Servo_ini(ServoPin_0_2);
+    Servo_ini(ServoPin_0_3);
+    HAL_GPIO_WritePin(GPIO_1, GPIO_PIN_15, 1);
+    HAL_GPIO_WritePin(LED1_PORT, LED1_PIN, 1);
+    Servo32_PrintAngle(ServoPin_0_0, 90);
+    Servo32_PrintAngle(ServoPin_0_1, 90);
+    Servo32_PrintAngle(ServoPin_0_2, 90);
+    Servo32_PrintAngle(ServoPin_0_3, 90);
+    HAL_DelayMs(&scr, 1000);
     while (1)
     {
-        Servo32_PrintAngle(ServoGPIO0_10, 180);
+        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
+        for (uint8_t i=0; i<=20; i++)
+        {
+            Servo32_PrintAngle(ServoPin_0_0, 90+i);
+            Servo32_PrintAngle(ServoPin_0_2, 90+i);
+            HAL_DelayMs(&scr, 20);
+        }
+        for (uint8_t i=0; i<=10; i++)
+        {
+            Servo32_PrintAngle(ServoPin_0_0, 110+i);
+            Servo32_PrintAngle(ServoPin_0_2, 110+i);
+            Servo32_PrintAngle(ServoPin_0_1, 90-i);
+            Servo32_PrintAngle(ServoPin_0_3, 90-i);
+            HAL_DelayMs(&scr, 20);
+        }
+        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
+        HAL_DelayMs(&scr, 100);
+
+        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
+        for (uint8_t i=0; i<=15; i++)
+        {
+            Servo32_PrintAngle(ServoPin_0_0, 90-i);
+            Servo32_PrintAngle(ServoPin_0_2, 90-i);
+            HAL_DelayMs(&scr, 25);
+        }
+        for (uint8_t i=0; i<=15; i++)
+        {
+            Servo32_PrintAngle(ServoPin_0_1, 90-i);
+            Servo32_PrintAngle(ServoPin_0_3, 90-i);
+            HAL_DelayMs(&scr, 25);
+        }
+        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
+        HAL_DelayMs(&scr, 10);
+
+        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
+        Servo32_PrintAngle(ServoPin_0_1, 95);
+        Servo32_PrintAngle(ServoPin_0_3, 85);
+        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
+
+        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
+        for (uint8_t i=0; i<=30; i++)
+        {
+            Servo32_PrintAngle(ServoPin_0_1, 90+i);
+            Servo32_PrintAngle(ServoPin_0_3, 90+i);
+            Servo32_PrintAngle(ServoPin_0_1, 90+(i>>1));
+            Servo32_PrintAngle(ServoPin_0_3, 90+(i>>2));
+            HAL_DelayMs(&scr, 35);
+        }
+        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
         HAL_DelayMs(&scr, 1000);
-        Servo32_PrintAngle(ServoGPIO0_10, 0);
-        HAL_DelayMs(&scr, 1000);
+
     }
 }
 
@@ -77,9 +140,26 @@ void SystemClock_Config(void)
 
 void GPIO_Init()
 {
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+
     __HAL_PCC_GPIO_0_CLK_ENABLE();
     __HAL_PCC_GPIO_1_CLK_ENABLE();
     __HAL_PCC_GPIO_2_CLK_ENABLE();
+
+    GPIO_InitStruct.Pin = GPIO_PIN_2;
+    GPIO_InitStruct.Mode = HAL_GPIO_MODE_GPIO_OUTPUT;
+    GPIO_InitStruct.Pull = HAL_GPIO_PULL_NONE;
+    HAL_GPIO_Init(GPIO_2, &GPIO_InitStruct);
+
+    GPIO_InitStruct.Pin = GPIO_PIN_1;
+    GPIO_InitStruct.Mode = HAL_GPIO_MODE_GPIO_OUTPUT;
+    GPIO_InitStruct.Pull = HAL_GPIO_PULL_NONE;
+    HAL_GPIO_Init(GPIO_2, &GPIO_InitStruct);
+
+    GPIO_InitStruct.Pin = GPIO_PIN_15;
+    GPIO_InitStruct.Mode = HAL_GPIO_MODE_GPIO_OUTPUT;
+    GPIO_InitStruct.Pull = HAL_GPIO_PULL_NONE;
+    HAL_GPIO_Init(1, &GPIO_InitStruct);
 }
 
 
