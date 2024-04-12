@@ -61,59 +61,63 @@ int main()
     Servo32_PrintAngle(ServoPin_0_1, 90);
     Servo32_PrintAngle(ServoPin_0_2, 90);
     Servo32_PrintAngle(ServoPin_0_3, 90);
-    HAL_DelayMs(&scr, 1000);
+    HAL_DelayMs(&scr, 2000);
     while (1)
     {
+        //Rotate AC 30 deg slowly
+        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
+        for (uint8_t i=0; i<=40; i++)
+        {
+            Servo32_PrintAngle(ServoPin_0_0, 90+i);
+            Servo32_PrintAngle(ServoPin_0_2, 90-i);
+            HAL_DelayMs(&scr, 35);
+        }
+        HAL_DelayMs(&scr, 1000);
+        //Rotate AC -10 deg slowly
+        for (uint8_t i=0; i<=50; i++)
+        {
+            Servo32_PrintAngle(ServoPin_0_0, 130-i);
+            Servo32_PrintAngle(ServoPin_0_2, 50+i);
+            HAL_DelayMs(&scr, 30);
+        }
+        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
+        HAL_DelayMs(&scr, 2000);
+        //Rotate BD 20 deg slowly
         HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
         for (uint8_t i=0; i<=20; i++)
         {
-            Servo32_PrintAngle(ServoPin_0_0, 90+i);
-            Servo32_PrintAngle(ServoPin_0_2, 90+i);
-            HAL_DelayMs(&scr, 20);
+            Servo32_PrintAngle(ServoPin_0_1, 90+i);
+            Servo32_PrintAngle(ServoPin_0_3, 90+i);
+            HAL_DelayMs(&scr, 35);
         }
-        for (uint8_t i=0; i<=10; i++)
+        HAL_DelayMs(&scr, 1000);
+        for (uint8_t i=0; i<=20; i++)
         {
-            Servo32_PrintAngle(ServoPin_0_0, 110+i);
-            Servo32_PrintAngle(ServoPin_0_2, 110+i);
-            Servo32_PrintAngle(ServoPin_0_1, 90-i);
-            Servo32_PrintAngle(ServoPin_0_3, 90-i);
-            HAL_DelayMs(&scr, 20);
-        }
-        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
-        HAL_DelayMs(&scr, 100);
-
-        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
-        for (uint8_t i=0; i<=15; i++)
-        {
-            Servo32_PrintAngle(ServoPin_0_0, 90-i);
-            Servo32_PrintAngle(ServoPin_0_2, 90-i);
-            HAL_DelayMs(&scr, 25);
-        }
-        for (uint8_t i=0; i<=15; i++)
-        {
-            Servo32_PrintAngle(ServoPin_0_1, 90-i);
-            Servo32_PrintAngle(ServoPin_0_3, 90-i);
+            Servo32_PrintAngle(ServoPin_0_0, 80-i);
+            Servo32_PrintAngle(ServoPin_0_2, 80+i);
+            Servo32_PrintAngle(ServoPin_0_1, 110-i);
+            Servo32_PrintAngle(ServoPin_0_3, 110-i);
             HAL_DelayMs(&scr, 25);
         }
         HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
-        HAL_DelayMs(&scr, 10);
-
-        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
-        Servo32_PrintAngle(ServoPin_0_1, 95);
-        Servo32_PrintAngle(ServoPin_0_3, 85);
-        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
+        HAL_DelayMs(&scr, 500);
 
         HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
         for (uint8_t i=0; i<=30; i++)
         {
-            Servo32_PrintAngle(ServoPin_0_1, 90+i);
+            Servo32_PrintAngle(ServoPin_0_1, 90-i);
             Servo32_PrintAngle(ServoPin_0_3, 90+i);
-            Servo32_PrintAngle(ServoPin_0_1, 90+(i>>1));
-            Servo32_PrintAngle(ServoPin_0_3, 90+(i>>2));
-            HAL_DelayMs(&scr, 35);
+            HAL_DelayMs(&scr, 30);
         }
         HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
-        HAL_DelayMs(&scr, 1000);
+
+        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
+        Servo32_PrintAngle(ServoPin_0_1, 90);
+        Servo32_PrintAngle(ServoPin_0_3, 90);
+        Servo32_PrintAngle(ServoPin_0_1, 90);
+        Servo32_PrintAngle(ServoPin_0_3, 90);
+        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
+        HAL_DelayMs(&scr, 3000);
 
     }
 }
